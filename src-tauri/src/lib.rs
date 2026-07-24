@@ -6,11 +6,7 @@ use api::UsageData;
 use autohide::AutoHideState;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use tauri::{
-    menu::{Menu, MenuItem},
-    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Emitter, Manager, State, WebviewWindowBuilder, WindowEvent,
-};
+use tauri::{menu::{Menu, MenuItem}, tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}, Emitter, Manager, PhysicalPosition, State, WebviewWindowBuilder, WindowEvent};
 use tauri_plugin_store::StoreExt;
 
 // 全局状态
@@ -291,6 +287,14 @@ pub fn run() {
                 }
             }
 
+            // 从 store 读取窗口位置
+            let saved_position = store.get("window_position").and_then(|v| {
+                Some((
+                    v.get("x")?.as_i64()? as i32,
+                    v.get("y")?.as_i64()? as i32,
+                ))
+            });
+
             // 创建托盘菜单
             let show_item = MenuItem::with_id(app, "show", "显示/隐藏", true, None::<&str>)?;
             let refresh_item = MenuItem::with_id(app, "refresh", "立即刷新", true, None::<&str>)?;
@@ -324,6 +328,18 @@ pub fn run() {
                         let _ = open_settings_window(app);
                     }
                     "quit" => {
+                        // 退出前保存主窗口位置
+                        if let Some(window) = app.get_webview_window("main") {
+                            if let Ok(pos) = window.outer_position() {
+                                if let Ok(store) = app.store("config.json") {
+                                    store.set("window_position", serde_json::json!({
+                                        "x": pos.x,
+                                        "y": pos.y,
+                                    }));
+                                    let _ = store.save();
+                                }
+                            }
+                        }
                         std::process::exit(0);
                     }
                     _ => {}
@@ -354,6 +370,10 @@ pub fn run() {
 
             // 启动贴边自动收起任务
             if let Some(window) = app.get_webview_window("main") {
+                // 恢复上次保存的窗口位置
+                if let Some((x, y)) = saved_position {
+                    let _ = window.set_position(PhysicalPosition::new(x, y));
+                }
                 autohide::start_auto_hide_task(window, auto_hide_state.clone());
             }
 
@@ -369,6 +389,17 @@ pub fn run() {
             // 阻止主窗口关闭，改为隐藏到托盘；设置窗口允许正常关闭
             if let WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "main" {
+                    // 保存当前窗口位置到 store
+                    if let Ok(pos) = window.outer_position() {
+                        let app = window.app_handle();
+                        if let Ok(store) = app.store("config.json") {
+                            store.set("window_position", serde_json::json!({
+                                "x": pos.x,
+                                "y": pos.y,
+                            }));
+                            let _ = store.save();
+                        }
+                    }
                     window.hide().unwrap();
                     api.prevent_close();
                 }

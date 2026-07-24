@@ -1,28 +1,49 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <!-- transparent background -->
-  <rect width="1024" height="1024" fill="none"/>
+  <defs>
+    <linearGradient id="glass" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.75)" />
+      <stop offset="100%" stop-color="rgba(255,255,255,0.45)" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="8" result="blur" />
+      <feOffset in="blur" dx="0" dy="0" result="offsetBlur" />
+      <feFlood flood-color="rgba(255,255,255,0.5)" result="glowColor" />
+      <feComposite in="glowColor" in2="offsetBlur" operator="in" result="glow" />
+      <feMerge>
+        <feMergeNode in="glow" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- glass background with rounded corners -->
+  <rect x="80" y="80" width="864" height="864" rx="200" ry="200"
+        fill="url(#glass)"
+        stroke="rgba(255,255,255,0.8)"
+        stroke-width="12"
+        filter="url(#glow)" />
 
   <g stroke="black" stroke-width="34" stroke-linecap="round" stroke-linejoin="round" fill="none">
     <!-- head -->
-    <circle cx="460" cy="230" r="78"/>
+    <circle cx="460" cy="260" r="78" />
 
     <!-- body: slightly leaning -->
-    <path d="M460 308 L560 470"/>
+    <path d="M460 338 L560 500" />
 
     <!-- left arm: pulled back for balance -->
-    <path d="M508 390 L330 330 L240 400"/>
+    <path d="M508 420 L330 360 L240 430" />
 
     <!-- right arm: forward guard -->
-    <path d="M520 400 L660 340 L740 260"/>
+    <path d="M520 430 L660 370 L740 290" />
 
     <!-- standing leg (back) -->
-    <path d="M560 470 L500 720 L420 820"/>
+    <path d="M560 500 L500 750 L420 850" />
 
     <!-- kicking leg (front, high) -->
-    <path d="M560 470 L720 560 L860 520"/>
+    <path d="M560 500 L720 590 L860 550" />
 
     <!-- fists -->
-    <circle cx="240" cy="400" r="20" fill="black" stroke="none"/>
-    <circle cx="740" cy="260" r="20" fill="black" stroke="none"/>
+    <circle cx="240" cy="430" r="20" fill="black" stroke="none" />
+    <circle cx="740" cy="290" r="20" fill="black" stroke="none" />
   </g>
 </svg>
