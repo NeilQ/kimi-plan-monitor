@@ -106,8 +106,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="w-screen h-screen relative overflow-hidden" :style="{ background: 'var(--color-bg-base)' }">
-    <div class="relative z-10 h-full flex flex-col gap-1 "
+  <div class="relative overflow-hidden" :style="{ background: 'var(--color-bg-base)' }">
+    <div class="relative z-10 h-full flex flex-col gap-1 min-w-[250px] min-h-[90px]"
                         style="-webkit-app-region: drag">
       <div class="header flex justify-between items-center">
         <span class="text-sm font-semibold text-text-primary">⚡ Kimi Plan</span>

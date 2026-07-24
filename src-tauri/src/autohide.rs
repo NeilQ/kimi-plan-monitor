@@ -40,6 +40,17 @@ const HIDE_DELAY_MS: u64 = 800; // 贴边后延迟收起
 const POLL_INTERVAL_MS: u64 = 200; // 轮询间隔
 const HOVER_EXPAND_DIST: i32 = 30; // 鼠标距离小边多远时触发展开
 
+// 动画参数
+const ANIMATION_DURATION_MS: u64 = 280; // 单方向动画时长
+const ANIMATION_FPS: u64 = 60; // 目标帧率
+const FRAME_INTERVAL_MS: u64 = 1000 / ANIMATION_FPS; // 每帧间隔（约 16ms）
+const TOTAL_FRAMES: u64 = ANIMATION_DURATION_MS / FRAME_INTERVAL_MS; // 总帧数
+
+// ease-out-cubic 缓动函数
+fn ease_out_cubic(t: f64) -> f64 {
+    1.0 - (1.0 - t).powi(3)
+}
+
 // 检测窗口是否贴边
 // 用 DwmGetWindowAttribute 拿可见框架边界，避免 Windows 不可见 resize 边框（~7px）
 // 导致 outer_size 与视觉位置错位、检测失败
@@ -144,6 +155,34 @@ fn visible_frame(window: &WebviewWindow) -> Option<((i32, i32), (i32, i32))> {
     Some(((pos.x, pos.y), (size.width as i32, size.height as i32)))
 }
 
+// 通用补间动画：从 from 平滑过渡到 to
+async fn animate_window(
+    window: &WebviewWindow,
+    from_size: PhysicalSize<u32>,
+    to_size: PhysicalSize<u32>,
+    from_pos: PhysicalPosition<i32>,
+    to_pos: PhysicalPosition<i32>,
+) {
+    for frame in 1..=TOTAL_FRAMES {
+        let progress = frame as f64 / TOTAL_FRAMES as f64;
+        let eased = ease_out_cubic(progress);
+
+        let width = (from_size.width as f64 + (to_size.width as f64 - from_size.width as f64) * eased) as u32;
+        let height = (from_size.height as f64 + (to_size.height as f64 - from_size.height as f64) * eased) as u32;
+        let x = (from_pos.x as f64 + (to_pos.x as f64 - from_pos.x as f64) * eased) as i32;
+        let y = (from_pos.y as f64 + (to_pos.y as f64 - from_pos.y as f64) * eased) as i32;
+
+        let _ = window.set_size(PhysicalSize::new(width, height));
+        let _ = window.set_position(PhysicalPosition::new(x, y));
+
+        tokio::time::sleep(Duration::from_millis(FRAME_INTERVAL_MS)).await;
+    }
+
+    // 最后一帧强制精确值，避免浮点误差
+    let _ = window.set_size(to_size);
+    let _ = window.set_position(to_pos);
+}
+
 // 收起窗口
 pub fn hide_window(window: &WebviewWindow, edge: Edge, state: &Arc<Mutex<AutoHideState>>) {
     info!("hide_window: edge={:?}", edge);
@@ -183,40 +222,38 @@ pub fn hide_window(window: &WebviewWindow, edge: Edge, state: &Arc<Mutex<AutoHid
     // 关键：先禁用 resizable，否则 Windows 会强制最小窗口宽度
     let _ = window.set_resizable(false);
 
-    // 全程物理像素：set_size/set_position 直接接受 PhysicalSize/PhysicalPosition
-    match edge {
-        Edge::Left => {
-            let _ = window.set_size(PhysicalSize::new(COLLAPSED_SIZE, size.height));
-            let _ = window.set_position(PhysicalPosition::new(screen_pos.x, pos.y));
-        }
-        Edge::Right => {
-            let _ = window.set_size(PhysicalSize::new(COLLAPSED_SIZE, size.height));
-            let _ = window.set_position(PhysicalPosition::new(
-                screen_right - COLLAPSED_SIZE as i32,
-                pos.y,
-            ));
-        }
-        Edge::Top => {
-            let _ = window.set_size(PhysicalSize::new(size.width, COLLAPSED_SIZE));
-            let _ = window.set_position(PhysicalPosition::new(pos.x, screen_pos.y));
-        }
-        Edge::Bottom => {
-            let _ = window.set_size(PhysicalSize::new(size.width, COLLAPSED_SIZE));
-            let _ = window.set_position(PhysicalPosition::new(
-                pos.x,
-                screen_bottom - COLLAPSED_SIZE as i32,
-            ));
-        }
-    }
+    // 计算收起后的目标 size 和 position
+    let (target_size, target_pos) = match edge {
+        Edge::Left => (
+            PhysicalSize::new(COLLAPSED_SIZE, size.height),
+            PhysicalPosition::new(screen_pos.x, pos.y),
+        ),
+        Edge::Right => (
+            PhysicalSize::new(COLLAPSED_SIZE, size.height),
+            PhysicalPosition::new(screen_right - COLLAPSED_SIZE as i32, pos.y),
+        ),
+        Edge::Top => (
+            PhysicalSize::new(size.width, COLLAPSED_SIZE),
+            PhysicalPosition::new(pos.x, screen_pos.y),
+        ),
+        Edge::Bottom => (
+            PhysicalSize::new(size.width, COLLAPSED_SIZE),
+            PhysicalPosition::new(pos.x, screen_bottom - COLLAPSED_SIZE as i32),
+        ),
+    };
 
-    info!("hide_window: done");
+    let window = window.clone();
+    tauri::async_runtime::spawn(async move {
+        animate_window(&window, size, target_size, pos, target_pos).await;
+        info!("hide_window: done");
+    });
 }
 
 // 展开窗口
 pub fn show_window(window: &WebviewWindow, state: &Arc<Mutex<AutoHideState>>) {
     info!("show_window");
 
-    let (size, pos) = {
+    let (size, pos, current_size, current_pos) = {
         let mut s = state.lock().unwrap();
         if !s.is_hidden {
             return;
@@ -225,18 +262,23 @@ pub fn show_window(window: &WebviewWindow, state: &Arc<Mutex<AutoHideState>>) {
             (Some(sz), Some(p)) => {
                 s.is_hidden = false;
                 s.edge = None;
-                (sz, p)
+                // 从当前实际状态开始动画，而不是从目标值
+                let current_size = window.inner_size().unwrap_or(sz);
+                let current_pos = window.outer_position().unwrap_or(p);
+                (sz, p, current_size, current_pos)
             }
             _ => return,
         }
     };
 
-    // 全程物理像素、inner/outer 各自对应：保存时什么样，恢复就什么样，不因 DPI 错位
+    // 先恢复 resizable，再恢复尺寸和位置
     let _ = window.set_resizable(true);
-    let _ = window.set_size(size);
-    let _ = window.set_position(pos);
 
-    info!("show_window: done");
+    let window = window.clone();
+    tauri::async_runtime::spawn(async move {
+        animate_window(&window, current_size, size, current_pos, pos).await;
+        info!("show_window: done");
+    });
 }
 
 // 获取鼠标位置（Windows 平台）
