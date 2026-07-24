@@ -83,6 +83,15 @@ fn set_token(state: State<'_, AppState>, app_handle: tauri::AppHandle, token: St
     Ok(())
 }
 
+// 激活窗口：若被遮挡、最小化或不可见则拉到前台
+fn activate_window(window: &tauri::WebviewWindow) {
+    let _ = window.unminimize();
+    let _ = window.show();
+    let _ = window.set_focus();
+    // alwaysOnTop 已开启，再次显式置顶确保不被其他窗口压住
+    let _ = window.set_always_on_top(true);
+}
+
 // 启动定时轮询任务
 fn start_polling_task(app_handle: tauri::AppHandle, state: Arc<Mutex<Option<UsageData>>>, token: Arc<Mutex<String>>) {
     tauri::async_runtime::spawn(async move {
@@ -177,15 +186,20 @@ pub fn run() {
                             if window.is_visible().unwrap_or(false) {
                                 let _ = window.hide();
                             } else {
-                                let _ = window.show();
-                                let _ = window.set_focus();
+                                activate_window(&window);
                             }
                         }
                     }
                     "refresh" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            activate_window(&window);
+                        }
                         let _ = app.emit("manual-refresh", ());
                     }
                     "settings" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            activate_window(&window);
+                        }
                         let _ = app.emit("open-settings", ());
                     }
                     "quit" => {
@@ -200,8 +214,7 @@ pub fn run() {
                             if window.is_visible().unwrap_or(false) {
                                 let _ = window.hide();
                             } else {
-                                let _ = window.show();
-                                let _ = window.set_focus();
+                                activate_window(&window);
                             }
                         }
                     }
