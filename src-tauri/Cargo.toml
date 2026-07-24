@@ -1,8 +1,10 @@
 [package]
 name = "kimi-plan-monitor"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "A lightweight Windows desktop widget to monitor Kimi Code Plan usage in real-time, built with Tauri 2.x and Vue 3."
+authors = ["neilq"]
+license = "MIT"
+readme = "../README.md"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

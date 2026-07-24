@@ -2,6 +2,8 @@
   "name": "kimi-plan-monitor",
   "private": true,
   "version": "0.1.0",
+  "description": "A lightweight Windows desktop widget to monitor Kimi Code Plan usage in real-time, built with Tauri 2.x and Vue 3.",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",
