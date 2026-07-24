@@ -13,11 +13,12 @@
     "windows": [
       {
         "title": "Kimi Plan Monitor",
-        "width": 250,
-        "height": 90,
+        "width": 260,
+        "height": 80,
         "decorations": false,
         "alwaysOnTop": true,
-        "resizable": true,
+        "resizable": false,
+        "center": true,
         "skipTaskbar": true,
         "transparent": true
       }

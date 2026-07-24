@@ -107,18 +107,18 @@ onUnmounted(() => {
 
 <template>
   <div class="w-screen h-screen relative overflow-hidden" :style="{ background: 'var(--color-bg-base)' }">
-    <div class="relative z-10 h-full flex flex-col gap-2 p-3"
+    <div class="relative z-10 h-full flex flex-col gap-1 "
                         style="-webkit-app-region: drag">
-      <div class="header flex justify-between items-center pb-2">
+      <div class="header flex justify-between items-center">
         <span class="text-sm font-semibold text-text-primary">⚡ Kimi Plan</span>
         <span class="text-[11px] text-text-secondary">{{ lastUpdateTime }}</span>
-        <div class="flex items-center gap-1" style="-webkit-app-region: no-drag">
-          <button class="icon-btn bg-transparent border-none text-base cursor-pointer px-2 py-1 rounded-md transition-colors"
+        <div class="flex items-center" style="-webkit-app-region: no-drag">
+          <button class="icon-btn bg-transparent border-none text-base cursor-pointer rounded-md transition-colors"
                   :title="theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'"
                   @click="toggleTheme">
             {{ theme === 'dark' ? '☀️' : '🌙' }}
           </button>
-          <button class="icon-btn bg-transparent border-none text-base cursor-pointer px-2 py-1 rounded-md transition-colors"
+          <button class="icon-btn bg-transparent border-none text-base cursor-pointer px-2 rounded-md transition-colors"
                   :class="{ 'animate-spin-once': isRefreshing }"
                   title="刷新"
                   @click="handleRefresh">

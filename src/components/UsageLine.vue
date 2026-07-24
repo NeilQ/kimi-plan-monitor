@@ -16,13 +16,15 @@ const isWarning = computed(() => {
 </script>
 
 <template>
-  <div class="flex items-center gap-2 font-mono text-xs px-2 py-1.5 rounded-lg backdrop-blur-md" >
+  <div class="flex items-center gap-2 font-mono text-xs px-2 rounded-lg backdrop-blur-md">
     <span class="text-sm">{{ icon }}</span>
     <span class="text-text-primary font-medium w-[40px]">{{ label }}</span>
     <span class="text-accent-blue font-semibold w-[20px] text-right">{{ used }}</span>
     <span class="text-text-muted">│</span>
-    <span class="font-semibold w-[25px] text-right transition-colors"
-          :class="isWarning ? 'text-danger animate-warning-pulse' : 'text-success'">
+    <span
+      class="font-semibold w-[25px] text-right transition-colors"
+      :class="isWarning ? 'text-danger animate-warning-pulse' : 'text-success'"
+    >
       {{ remaining }}
     </span>
     <span class="text-text-secondary ml-auto text-[11px]">{{ resetTime }}</span>
