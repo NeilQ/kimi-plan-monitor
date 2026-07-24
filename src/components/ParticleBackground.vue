@@ -1,9 +1,21 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
+
+const props = withDefaults(
+  defineProps<{
+    theme?: 'dark' | 'light';
+  }>(),
+  { theme: 'dark' }
+);
 
 const canvasRef = ref<HTMLCanvasElement>();
 let animationId: number;
 let particles: Particle[] = [];
+
+// 深色主题粒子：青/蓝/紫 高亮
+const DARK_COLORS = ['#00d4ff', '#7b2cbf', '#4a90e2'];
+// 浅色主题粒子：低饱和度深色调，避免在白底上看不清
+const LIGHT_COLORS = ['#0891b2', '#6d28d9', '#2563eb'];
 
 class Particle {
   x: number;
@@ -15,7 +27,7 @@ class Particle {
   color: string;
   canvas: HTMLCanvasElement;
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, colors: string[]) {
     this.canvas = canvas;
     this.x = Math.random() * canvas.width;
     this.y = Math.random() * canvas.height;
@@ -23,7 +35,7 @@ class Particle {
     this.vy = (Math.random() - 0.5) * 0.3;
     this.radius = Math.random() * 2 + 1;
     this.opacity = Math.random() * 0.3 + 0.3;
-    this.color = ['#00d4ff', '#7b2cbf', '#4a90e2'][Math.floor(Math.random() * 3)];
+    this.color = colors[Math.floor(Math.random() * colors.length)];
   }
 
   update() {
@@ -42,11 +54,13 @@ class Particle {
   }
 }
 
+const currentColors = () => (props.theme === 'light' ? LIGHT_COLORS : DARK_COLORS);
+
 const initParticles = (canvas: HTMLCanvasElement) => {
   particles = [];
   const particleCount = 25;
   for (let i = 0; i < particleCount; i++) {
-    particles.push(new Particle(canvas));
+    particles.push(new Particle(canvas, currentColors()));
   }
 };
 
@@ -60,6 +74,19 @@ const animate = (canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) => {
 
   animationId = requestAnimationFrame(() => animate(canvas, ctx));
 };
+
+watch(
+  () => props.theme,
+  () => {
+    // 主题切换时重建粒子颜色
+    const canvas = canvasRef.value;
+    if (canvas) {
+      particles.forEach(p => {
+        p.color = currentColors()[Math.floor(Math.random() * currentColors().length)];
+      });
+    }
+  }
+);
 
 onMounted(() => {
   const canvas = canvasRef.value;

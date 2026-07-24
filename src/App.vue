@@ -16,6 +16,21 @@ const lastUpdateTime = ref('--:--:--');
 const isRefreshing = ref(false);
 const settingsDialog = ref<InstanceType<typeof SettingsDialog>>();
 
+// 主题
+const theme = ref<'dark' | 'light'>(
+  (localStorage.getItem('theme') as 'dark' | 'light') || 'dark'
+);
+
+const applyTheme = (t: 'dark' | 'light') => {
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem('theme', t);
+};
+
+const toggleTheme = () => {
+  theme.value = theme.value === 'dark' ? 'light' : 'dark';
+  applyTheme(theme.value);
+};
+
 const handleRefresh = async () => {
   isRefreshing.value = true;
   try {
@@ -67,6 +82,8 @@ let unlistenSettings: (() => void) | undefined;
 let unlistenRefresh: (() => void) | undefined;
 
 onMounted(async () => {
+  applyTheme(theme.value);
+
   unlistenUsage = await listen('usage-updated', (event: any) => {
     updateUsage(event.payload);
   });
@@ -91,22 +108,31 @@ onUnmounted(() => {
 
 <template>
   <div class="w-screen h-screen relative overflow-hidden">
-    <ParticleBackground />
+    <ParticleBackground :theme="theme" />
 
     <div
       class="relative z-10 h-full flex flex-col gap-2 p-3"
       style="-webkit-app-region: drag"
     >
-      <div class="flex justify-between items-center pb-2 border-b border-white/10">
+      <div class="header flex justify-between items-center pb-2">
         <span class="text-sm font-semibold text-text-primary">⚡ Kimi Plan</span>
-        <button
-          class="bg-transparent border-none text-base cursor-pointer px-2 py-1 rounded-md transition-colors hover:bg-white/10"
-          :class="{ 'animate-spin-once': isRefreshing }"
-          style="-webkit-app-region: no-drag"
-          @click="handleRefresh"
-        >
-          🔄
-        </button>
+        <div class="flex items-center gap-1" style="-webkit-app-region: no-drag">
+          <button
+            class="icon-btn bg-transparent border-none text-base cursor-pointer px-2 py-1 rounded-md transition-colors"
+            :title="theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'"
+            @click="toggleTheme"
+          >
+            {{ theme === 'dark' ? '☀️' : '🌙' }}
+          </button>
+          <button
+            class="icon-btn bg-transparent border-none text-base cursor-pointer px-2 py-1 rounded-md transition-colors"
+            :class="{ 'animate-spin-once': isRefreshing }"
+            title="刷新"
+            @click="handleRefresh"
+          >
+            🔄
+          </button>
+        </div>
       </div>
 
       <UsageLine
@@ -125,7 +151,7 @@ onUnmounted(() => {
         :reset-time="hourlyResetTime"
       />
 
-      <div class="mt-auto pt-2 border-t border-white/10">
+      <div class="footer mt-auto pt-2">
         <span class="text-[11px] text-text-secondary">✨ {{ lastUpdateTime }}</span>
       </div>
     </div>
@@ -146,5 +172,17 @@ onUnmounted(() => {
 
 .animate-spin-once {
   animation: spin-once 0.6s linear;
+}
+
+.header {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.footer {
+  border-top: 1px solid var(--color-border);
+}
+
+.icon-btn:hover {
+  background-color: var(--color-hover);
 }
 </style>

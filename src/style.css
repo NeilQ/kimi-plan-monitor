@@ -1,16 +1,38 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg-base: #0a0a12;
-  --color-bg-card: #1a1a2e;
-  --color-text-primary: #e0e0ff;
-  --color-text-secondary: #8a8aaa;
-  --color-text-muted: #4a4a6a;
   --color-accent-cyan: #00d4ff;
   --color-accent-purple: #7b2cbf;
   --color-accent-blue: #4a90e2;
   --color-danger: #ff6b6b;
   --color-success: #51cf66;
+}
+
+/* 深色主题（默认） */
+:root,
+[data-theme='dark'] {
+  --color-bg-base: #0a0a12;
+  --color-bg-card: #1a1a2e;
+  --color-bg-line: rgba(255, 255, 255, 0.05);
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-hover: rgba(255, 255, 255, 0.1);
+  --color-text-primary: #e0e0ff;
+  --color-text-secondary: #8a8aaa;
+  --color-text-muted: #4a4a6a;
+  --color-overlay: rgba(0, 0, 0, 0.5);
+}
+
+/* 浅色主题 */
+[data-theme='light'] {
+  --color-bg-base: #f5f7fa;
+  --color-bg-card: #ffffff;
+  --color-bg-line: rgba(0, 0, 0, 0.04);
+  --color-border: rgba(0, 0, 0, 0.1);
+  --color-hover: rgba(0, 0, 0, 0.06);
+  --color-text-primary: #1a1a2e;
+  --color-text-secondary: #6a6a8a;
+  --color-text-muted: #b0b0c8;
+  --color-overlay: rgba(255, 255, 255, 0.6);
 }
 
 * {
@@ -25,6 +47,7 @@ body {
   color: var(--color-text-primary);
   overflow: hidden;
   user-select: none;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 #app {

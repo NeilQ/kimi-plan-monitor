@@ -16,9 +16,7 @@ const isWarning = computed(() => {
 </script>
 
 <template>
-  <div
-    class="flex items-center gap-2 font-mono text-xs px-2 py-1.5 bg-white/5 rounded-lg backdrop-blur-md"
-  >
+  <div class="usage-line flex items-center gap-2 font-mono text-xs px-2 py-1.5 rounded-lg backdrop-blur-md">
     <span class="text-sm">{{ icon }}</span>
     <span class="text-text-primary font-medium min-w-[50px]">{{ label }}</span>
     <span class="text-accent-blue font-semibold min-w-[40px] text-right">{{ used }}</span>
@@ -46,5 +44,9 @@ const isWarning = computed(() => {
 
 .animate-warning-pulse {
   animation: warning-pulse 1s ease-in-out infinite;
+}
+
+.usage-line {
+  background: var(--color-bg-line);
 }
 </style>

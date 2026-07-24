@@ -50,15 +50,15 @@ defineExpose({ open });
 <template>
   <div
     v-if="visible"
-    class="fixed inset-0 w-screen h-screen bg-black/50 flex items-center justify-center z-[1000]"
+    class="overlay fixed inset-0 w-screen h-screen flex items-center justify-center z-[1000]"
     style="-webkit-app-region: no-drag"
     @click.self="close"
   >
-    <div class="bg-bg-card rounded-xl w-[400px] shadow-2xl border border-white/10">
-      <div class="flex justify-between items-center px-5 py-4 border-b border-white/10">
+    <div class="dialog rounded-xl w-[400px] shadow-2xl">
+      <div class="dialog-header flex justify-between items-center px-5 py-4">
         <span class="text-base font-semibold text-text-primary">⚙️ 设置</span>
         <button
-          class="bg-transparent border-none text-text-secondary text-xl cursor-pointer w-7 h-7 flex items-center justify-center rounded-md transition-colors hover:bg-white/10 hover:text-text-primary"
+          class="close-btn bg-transparent border-none text-text-secondary text-xl cursor-pointer w-7 h-7 flex items-center justify-center rounded-md transition-colors hover:text-text-primary"
           @click="close"
         >
           ✕
@@ -73,7 +73,7 @@ defineExpose({ open });
             v-model="token"
             @blur="handleTokenChange"
             placeholder="sk-kimi-..."
-            class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-md text-text-primary text-[13px] font-mono outline-none transition-colors focus:border-accent-cyan placeholder:text-text-muted"
+            class="token-input w-full px-3 py-2 rounded-md text-text-primary text-[13px] font-mono outline-none transition-colors focus:border-accent-cyan placeholder:text-text-muted"
           />
           <p class="mt-1.5 text-xs text-text-secondary leading-relaxed">Kimi Code Plan 的 API Token</p>
         </div>
@@ -92,7 +92,7 @@ defineExpose({ open });
         </div>
       </div>
 
-      <div class="px-5 py-4 border-t border-white/10 flex justify-end">
+      <div class="dialog-footer px-5 py-4 flex justify-end">
         <button
           class="bg-gradient-to-br from-accent-cyan to-accent-purple border-none text-white px-5 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(0,212,255,0.3)] active:translate-y-0"
           @click="close"
@@ -103,3 +103,35 @@ defineExpose({ open });
     </div>
   </div>
 </template>
+
+<style scoped>
+.overlay {
+  background: var(--color-overlay);
+}
+
+.dialog {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+}
+
+.dialog-header {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.dialog-footer {
+  border-top: 1px solid var(--color-border);
+}
+
+.close-btn:hover {
+  background-color: var(--color-hover);
+}
+
+.token-input {
+  background: var(--color-bg-line);
+  border: 1px solid var(--color-border);
+}
+
+.token-input:focus {
+  border-color: var(--color-accent-cyan);
+}
+</style>
