@@ -21,7 +21,7 @@ const isWarning = computed(() => {
   >
     <span class="text-sm">{{ icon }}</span>
     <span class="text-text-primary font-medium min-w-[50px]">{{ label }}</span>
-    <span class="text-danger font-semibold min-w-[40px] text-right">{{ used }}</span>
+    <span class="text-accent-blue font-semibold min-w-[40px] text-right">{{ used }}</span>
     <span class="text-text-muted">│</span>
     <span
       class="font-semibold min-w-[40px] text-right transition-colors"
