@@ -147,7 +147,19 @@ onUnmounted(() => {
     <div class="relative z-10 h-full flex flex-col gap-1 min-w-[250px] min-h-[90px]"
                         style="-webkit-app-region: drag">
       <div class="header flex justify-between items-center">
-        <span class="text-sm font-semibold text-text-primary">⚡ Kimi Plan</span>
+        <span class="text-sm font-semibold text-text-primary flex items-center gap-1.5">
+          <span class="inline-flex items-center justify-center w-4 h-4 mt-1 ml-1">
+            <svg class="w-full h-full" viewBox="0 0 1024 1024" fill="none" stroke="currentColor" stroke-width="60" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="460" cy="230" r="78" />
+              <path d="M460 308 L560 470" />
+              <path d="M508 390 L330 330 L240 400" />
+              <path d="M520 400 L660 340 L740 260" />
+              <path d="M560 470 L500 720 L420 820" />
+              <path d="M560 470 L720 560 L860 520" />
+            </svg>
+          </span>
+          Kimi Plan
+        </span>
         <span class="text-[11px] text-text-secondary">{{ lastUpdateTime }}</span>
         <div class="flex items-center" style="-webkit-app-region: no-drag">
           <button class="icon-btn bg-transparent border-none text-base cursor-pointer rounded-md transition-colors"

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- transparent background -->
+  <rect width="1024" height="1024" fill="none"/>
+
+  <g stroke="black" stroke-width="34" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- head -->
+    <circle cx="460" cy="230" r="78"/>
+
+    <!-- body: slightly leaning -->
+    <path d="M460 308 L560 470"/>
+
+    <!-- left arm: pulled back for balance -->
+    <path d="M508 390 L330 330 L240 400"/>
+
+    <!-- right arm: forward guard -->
+    <path d="M520 400 L660 340 L740 260"/>
+
+    <!-- standing leg (back) -->
+    <path d="M560 470 L500 720 L420 820"/>
+
+    <!-- kicking leg (front, high) -->
+    <path d="M560 470 L720 560 L860 520"/>
+
+    <!-- fists -->
+    <circle cx="240" cy="400" r="20" fill="black" stroke="none"/>
+    <circle cx="740" cy="260" r="20" fill="black" stroke="none"/>
+  </g>
+</svg>
