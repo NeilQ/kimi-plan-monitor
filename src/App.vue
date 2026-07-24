@@ -2,7 +2,6 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import ParticleBackground from './components/ParticleBackground.vue';
 import UsageLine from './components/UsageLine.vue';
 import SettingsDialog from './components/SettingsDialog.vue';
 
@@ -107,9 +106,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="w-screen h-screen relative overflow-hidden">
-    <ParticleBackground :theme="theme" />
-
+  <div class="w-screen h-screen relative overflow-hidden" :style="{ background: 'var(--color-bg-base)' }">
     <div class="relative z-10 h-full flex flex-col gap-2 p-3"
                         style="-webkit-app-region: drag">
       <div class="header flex justify-between items-center pb-2">
