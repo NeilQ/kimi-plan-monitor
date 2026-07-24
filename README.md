@@ -81,6 +81,8 @@ npm run typecheck
 
 ### 主窗口
 
+![Kimi Plan Monitor 主窗口](sample.png)
+
 - 顶部显示应用图标和名称、上次刷新时间
 - 两行用量条：周用量（📅）和 5 小时用量（⏱️）
 - 右上角支持切换主题和手动刷新
