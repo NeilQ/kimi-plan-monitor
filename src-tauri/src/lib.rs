@@ -55,8 +55,15 @@ fn get_auto_hide_enabled(state: State<'_, AppState>) -> bool {
 }
 
 #[tauri::command]
-fn set_auto_hide_enabled(state: State<'_, AppState>, enabled: bool) {
+fn set_auto_hide_enabled(state: State<'_, AppState>, app_handle: tauri::AppHandle, enabled: bool) -> Result<(), String> {
     state.auto_hide_state.lock().unwrap().enabled = enabled;
+
+    // 持久化到 store
+    let store = app_handle.store("config.json").map_err(|e| format!("failed to open store: {}", e))?;
+    store.set("auto_hide_enabled", serde_json::json!(enabled));
+    store.save().map_err(|e| format!("failed to save store: {}", e))?;
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -65,8 +72,15 @@ fn get_token(state: State<'_, AppState>) -> String {
 }
 
 #[tauri::command]
-fn set_token(state: State<'_, AppState>, token: String) {
-    *state.token.lock().unwrap() = token;
+fn set_token(state: State<'_, AppState>, app_handle: tauri::AppHandle, token: String) -> Result<(), String> {
+    *state.token.lock().unwrap() = token.clone();
+
+    // 持久化到 store
+    let store = app_handle.store("config.json").map_err(|e| format!("failed to open store: {}", e))?;
+    store.set("token", serde_json::json!(token));
+    store.save().map_err(|e| format!("failed to save store: {}", e))?;
+
+    Ok(())
 }
 
 // 启动定时轮询任务
@@ -111,9 +125,8 @@ pub fn run() {
     let usage_data = Arc::new(Mutex::new(None));
     let auto_hide_state = Arc::new(Mutex::new(AutoHideState::new()));
 
-    // 默认 Token
-    let default_token = "***REDACTED-TOKEN***".to_string();
-    let token = Arc::new(Mutex::new(default_token));
+    // Token 从配置文件读取，初始为空，需用户在设置中填写
+    let token = Arc::new(Mutex::new(String::new()));
 
     let app_state = AppState {
         usage_data: usage_data.clone(),
@@ -136,10 +149,6 @@ pub fn run() {
                 if let Some(token_str) = saved_token.as_str() {
                     *token.lock().unwrap() = token_str.to_string();
                 }
-            } else {
-                // 如果没有保存的 Token，保存默认值
-                store.set("token", serde_json::json!(token.lock().unwrap().clone()));
-                let _ = store.save();
             }
 
             // 从 store 读取自动收起设置
@@ -206,6 +215,13 @@ pub fn run() {
             // 启动贴边自动收起任务
             if let Some(window) = app.get_webview_window("main") {
                 autohide::start_auto_hide_task(window, auto_hide_state.clone());
+            }
+
+            // 首次启动未配置 Token 时，提示前端打开设置
+            if token.lock().unwrap().is_empty() {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.emit("open-settings", ());
+                }
             }
 
             Ok(())
