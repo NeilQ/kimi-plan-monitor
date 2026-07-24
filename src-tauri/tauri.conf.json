@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "Kimi Plan Monitor",
-        "width": 320,
-        "height": 120,
+        "width": 250,
+        "height": 90,
         "decorations": false,
         "alwaysOnTop": true,
         "resizable": true,

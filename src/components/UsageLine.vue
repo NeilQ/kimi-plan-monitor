@@ -16,15 +16,13 @@ const isWarning = computed(() => {
 </script>
 
 <template>
-  <div class="usage-line flex items-center gap-2 font-mono text-xs px-2 py-1.5 rounded-lg backdrop-blur-md">
+  <div class="flex items-center gap-2 font-mono text-xs px-2 py-1.5 rounded-lg backdrop-blur-md" >
     <span class="text-sm">{{ icon }}</span>
-    <span class="text-text-primary font-medium min-w-[50px]">{{ label }}</span>
-    <span class="text-accent-blue font-semibold min-w-[40px] text-right">{{ used }}</span>
+    <span class="text-text-primary font-medium w-[40px]">{{ label }}</span>
+    <span class="text-accent-blue font-semibold w-[20px] text-right">{{ used }}</span>
     <span class="text-text-muted">│</span>
-    <span
-      class="font-semibold min-w-[40px] text-right transition-colors"
-      :class="isWarning ? 'text-danger animate-warning-pulse' : 'text-success'"
-    >
+    <span class="font-semibold w-[25px] text-right transition-colors"
+          :class="isWarning ? 'text-danger animate-warning-pulse' : 'text-success'">
       {{ remaining }}
     </span>
     <span class="text-text-secondary ml-auto text-[11px]">{{ resetTime }}</span>
@@ -33,10 +31,12 @@ const isWarning = computed(() => {
 
 <style scoped>
 @keyframes warning-pulse {
+
   0%,
   100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.6;
   }
@@ -46,7 +46,4 @@ const isWarning = computed(() => {
   animation: warning-pulse 1s ease-in-out infinite;
 }
 
-.usage-line {
-  background: var(--color-bg-line);
-}
 </style>

@@ -110,53 +110,40 @@ onUnmounted(() => {
   <div class="w-screen h-screen relative overflow-hidden">
     <ParticleBackground :theme="theme" />
 
-    <div
-      class="relative z-10 h-full flex flex-col gap-2 p-3"
-      style="-webkit-app-region: drag"
-    >
+    <div class="relative z-10 h-full flex flex-col gap-2 p-3"
+                        style="-webkit-app-region: drag">
       <div class="header flex justify-between items-center pb-2">
         <span class="text-sm font-semibold text-text-primary">⚡ Kimi Plan</span>
+        <span class="text-[11px] text-text-secondary">{{ lastUpdateTime }}</span>
         <div class="flex items-center gap-1" style="-webkit-app-region: no-drag">
-          <button
-            class="icon-btn bg-transparent border-none text-base cursor-pointer px-2 py-1 rounded-md transition-colors"
-            :title="theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'"
-            @click="toggleTheme"
-          >
+          <button class="icon-btn bg-transparent border-none text-base cursor-pointer px-2 py-1 rounded-md transition-colors"
+                  :title="theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'"
+                  @click="toggleTheme">
             {{ theme === 'dark' ? '☀️' : '🌙' }}
           </button>
-          <button
-            class="icon-btn bg-transparent border-none text-base cursor-pointer px-2 py-1 rounded-md transition-colors"
-            :class="{ 'animate-spin-once': isRefreshing }"
-            title="刷新"
-            @click="handleRefresh"
-          >
+          <button class="icon-btn bg-transparent border-none text-base cursor-pointer px-2 py-1 rounded-md transition-colors"
+                  :class="{ 'animate-spin-once': isRefreshing }"
+                  title="刷新"
+                  @click="handleRefresh">
             🔄
           </button>
         </div>
       </div>
 
-      <UsageLine
-        icon="📅"
-        label="周用量"
-        :used="weeklyUsed"
-        :remaining="weeklyRemaining"
-        :reset-time="weeklyResetTime"
-      />
+      <UsageLine icon="📅"
+                 label="周用量"
+                 :used="weeklyUsed"
+                 :remaining="weeklyRemaining"
+                 :reset-time="weeklyResetTime" />
 
-      <UsageLine
-        icon="⏱️"
-        label="5小时"
-        :used="hourlyUsed"
-        :remaining="hourlyRemaining"
-        :reset-time="hourlyResetTime"
-      />
+      <UsageLine icon="⏱️"
+                 label="5小时"
+                 :used="hourlyUsed"
+                 :remaining="hourlyRemaining"
+                 :reset-time="hourlyResetTime" />
+  </div>
 
-      <div class="footer mt-auto pt-2">
-        <span class="text-[11px] text-text-secondary">✨ {{ lastUpdateTime }}</span>
-      </div>
-    </div>
-
-    <SettingsDialog ref="settingsDialog" />
+  <SettingsDialog ref="settingsDialog" />
   </div>
 </template>
 
@@ -165,6 +152,7 @@ onUnmounted(() => {
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
