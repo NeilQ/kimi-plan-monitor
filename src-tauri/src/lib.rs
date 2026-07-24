@@ -18,6 +18,7 @@ struct AppState {
     usage_data: Arc<Mutex<Option<UsageData>>>,
     token: Arc<Mutex<String>>,
     auto_hide_state: Arc<Mutex<AutoHideState>>,
+    theme: Arc<Mutex<String>>,
 }
 
 #[tauri::command]
@@ -45,7 +46,15 @@ async fn refresh_usage(state: State<'_, AppState>, app_handle: tauri::AppHandle)
 
             Ok(())
         }
-        Err(e) => Err(format!("Failed to fetch usage: {}", e)),
+        Err(e) => {
+            // API 请求失败（如 401 Token 无效）：清空已有用量数据
+            log::warn!("refresh usage failed, clearing usage data: {}", e);
+            *state.usage_data.lock().unwrap() = None;
+            if let Some(window) = app_handle.get_webview_window("main") {
+                let _ = window.emit("usage-cleared", ());
+            }
+            Err(format!("Failed to fetch usage: {}", e))
+        }
     }
 }
 
@@ -84,9 +93,17 @@ fn set_token(state: State<'_, AppState>, app_handle: tauri::AppHandle, token: St
     // 不让设置窗口自己 invoke refresh_usage，避免窗口关闭后 Promise 回传失败
     if !token.is_empty() {
         tauri::async_runtime::spawn(async move {
-            if let Ok(data) = api::fetch_usage(&token).await {
-                if let Some(window) = app_handle.get_webview_window("main") {
-                    let _ = window.emit("usage-updated", data);
+            match api::fetch_usage(&token).await {
+                Ok(data) => {
+                    if let Some(window) = app_handle.get_webview_window("main") {
+                        let _ = window.emit("usage-updated", data);
+                    }
+                }
+                Err(e) => {
+                    log::warn!("auto refresh after set_token failed, clearing usage data: {}", e);
+                    if let Some(window) = app_handle.get_webview_window("main") {
+                        let _ = window.emit("usage-cleared", ());
+                    }
                 }
             }
         });
@@ -111,6 +128,28 @@ fn close_current_window(window: tauri::Window) -> Result<(), String> {
     window.close().map_err(|e| format!("failed to close window: {}", e))
 }
 
+// 获取当前主题
+#[tauri::command]
+fn get_theme(state: State<'_, AppState>) -> String {
+    state.theme.lock().unwrap().clone()
+}
+
+// 设置主题并广播给所有窗口
+#[tauri::command]
+fn set_theme(state: State<'_, AppState>, app_handle: tauri::AppHandle, theme: String) -> Result<(), String> {
+    *state.theme.lock().unwrap() = theme.clone();
+
+    // 持久化到 store
+    let store = app_handle.store("config.json").map_err(|e| format!("failed to open store: {}", e))?;
+    store.set("theme", serde_json::json!(theme));
+    store.save().map_err(|e| format!("failed to save store: {}", e))?;
+
+    // 广播主题变更事件给所有窗口
+    let _ = app_handle.emit("theme-changed", theme);
+
+    Ok(())
+}
+
 // 激活窗口：若被遮挡、最小化或不可见则拉到前台
 fn activate_window(window: &tauri::WebviewWindow) {
     let _ = window.unminimize();
@@ -133,7 +172,7 @@ fn open_settings_window(app: &tauri::AppHandle) -> Result<(), String> {
         // 不存在：动态创建，关闭即销毁
         let _window = WebviewWindowBuilder::new(app, "settings", tauri::WebviewUrl::App("settings.html".into()))
             .title("设置")
-            .inner_size(420.0, 320.0)
+            .inner_size(420.0, 420.0)
             .decorations(true)
             .always_on_top(true)
             .resizable(false)
@@ -153,12 +192,21 @@ fn start_polling_task(app_handle: tauri::AppHandle, state: Arc<Mutex<Option<Usag
         // 启动时立即执行一次
         let token_value = token.lock().unwrap().clone();
         if !token_value.is_empty() {
-            if let Ok(data) = api::fetch_usage(&token_value).await {
-                let mut usage_data = state.lock().unwrap();
-                *usage_data = Some(data.clone());
+            match api::fetch_usage(&token_value).await {
+                Ok(data) => {
+                    let mut usage_data = state.lock().unwrap();
+                    *usage_data = Some(data.clone());
 
-                if let Some(window) = app_handle.get_webview_window("main") {
-                    let _ = window.emit("usage-updated", data);
+                    if let Some(window) = app_handle.get_webview_window("main") {
+                        let _ = window.emit("usage-updated", data);
+                    }
+                }
+                Err(e) => {
+                    log::warn!("initial polling failed, clearing usage data: {}", e);
+                    *state.lock().unwrap() = None;
+                    if let Some(window) = app_handle.get_webview_window("main") {
+                        let _ = window.emit("usage-cleared", ());
+                    }
                 }
             }
         }
@@ -172,12 +220,21 @@ fn start_polling_task(app_handle: tauri::AppHandle, state: Arc<Mutex<Option<Usag
                 continue;
             }
 
-            if let Ok(data) = api::fetch_usage(&token_value).await {
-                let mut usage_data = state.lock().unwrap();
-                *usage_data = Some(data.clone());
+            match api::fetch_usage(&token_value).await {
+                Ok(data) => {
+                    let mut usage_data = state.lock().unwrap();
+                    *usage_data = Some(data.clone());
 
-                if let Some(window) = app_handle.get_webview_window("main") {
-                    let _ = window.emit("usage-updated", data);
+                    if let Some(window) = app_handle.get_webview_window("main") {
+                        let _ = window.emit("usage-updated", data);
+                    }
+                }
+                Err(e) => {
+                    log::warn!("polling failed, clearing usage data: {}", e);
+                    *state.lock().unwrap() = None;
+                    if let Some(window) = app_handle.get_webview_window("main") {
+                        let _ = window.emit("usage-cleared", ());
+                    }
                 }
             }
         }
@@ -198,7 +255,9 @@ pub fn run() {
         usage_data: usage_data.clone(),
         token: token.clone(),
         auto_hide_state: auto_hide_state.clone(),
+        theme: Arc::new(Mutex::new("light".to_string())),
     };
+    let theme_for_setup = app_state.theme.clone();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -208,6 +267,7 @@ pub fn run() {
             let usage_data = usage_data.clone();
             let token = token.clone();
             let auto_hide_state = auto_hide_state.clone();
+            let theme = theme_for_setup.clone();
 
             // 从 store 读取 Token
             let store = app.store("config.json").expect("failed to open store");
@@ -221,6 +281,13 @@ pub fn run() {
             if let Some(enabled) = store.get("auto_hide_enabled") {
                 if let Some(enabled_bool) = enabled.as_bool() {
                     auto_hide_state.lock().unwrap().enabled = enabled_bool;
+                }
+            }
+
+            // 从 store 读取主题设置
+            if let Some(saved_theme) = store.get("theme") {
+                if let Some(theme_str) = saved_theme.as_str() {
+                    *theme.lock().unwrap() = theme_str.to_string();
                 }
             }
 
@@ -307,7 +374,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![greet, refresh_usage, get_auto_hide_enabled, set_auto_hide_enabled, get_token, set_token, get_config_path, close_current_window])
+        .invoke_handler(tauri::generate_handler![greet, refresh_usage, get_auto_hide_enabled, set_auto_hide_enabled, get_token, set_token, get_config_path, close_current_window, get_theme, set_theme])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

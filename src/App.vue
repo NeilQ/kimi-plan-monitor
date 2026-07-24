@@ -14,29 +14,58 @@ const lastUpdateTime = ref('--:--:--');
 const isRefreshing = ref(false);
 
 // 主题
-const theme = ref<'dark' | 'light'>(
-  (localStorage.getItem('theme') as 'dark' | 'light') || 'light'
-);
+const theme = ref<'dark' | 'light'>('light');
 
 const applyTheme = (t: 'dark' | 'light') => {
   document.documentElement.setAttribute('data-theme', t);
   localStorage.setItem('theme', t);
 };
 
-const toggleTheme = () => {
-  theme.value = theme.value === 'dark' ? 'light' : 'dark';
-  applyTheme(theme.value);
+const loadTheme = async () => {
+  try {
+    const saved = await invoke<'dark' | 'light'>('get_theme');
+    theme.value = saved || 'light';
+    applyTheme(theme.value);
+  } catch (e) {
+    console.error('Failed to load theme:', e);
+    const fallback = (localStorage.getItem('theme') as 'dark' | 'light') || 'light';
+    theme.value = fallback;
+    applyTheme(fallback);
+  }
+};
+
+const toggleTheme = async () => {
+  const newTheme = theme.value === 'dark' ? 'light' : 'dark';
+  theme.value = newTheme;
+  applyTheme(newTheme);
+  try {
+    await invoke('set_theme', { theme: newTheme });
+  } catch (e) {
+    console.error('Failed to set theme:', e);
+  }
 };
 
 const handleRefresh = async () => {
   isRefreshing.value = true;
   try {
     await invoke('refresh_usage');
+  } catch (e) {
+    // 后端已清空数据并发出 usage-cleared，这里不额外处理显示
+    console.error('Refresh failed:', e);
   } finally {
     setTimeout(() => {
       isRefreshing.value = false;
     }, 600);
   }
+};
+
+const clearUsage = () => {
+  weeklyUsed.value = '--%';
+  weeklyRemaining.value = '--%';
+  weeklyResetTime.value = '--';
+  hourlyUsed.value = '--%';
+  hourlyRemaining.value = '--%';
+  hourlyResetTime.value = '--';
 };
 
 const updateUsage = (data: any) => {
@@ -76,16 +105,30 @@ const formatResetTime = (isoString: string) => {
 
 let unlistenUsage: (() => void) | undefined;
 let unlistenRefresh: (() => void) | undefined;
+let unlistenTheme: (() => void) | undefined;
+let unlistenCleared: (() => void) | undefined;
 
 onMounted(async () => {
-  applyTheme(theme.value);
+  await loadTheme();
 
   unlistenUsage = await listen('usage-updated', (event: any) => {
     updateUsage(event.payload);
   });
 
+  unlistenCleared = await listen('usage-cleared', () => {
+    clearUsage();
+  });
+
   unlistenRefresh = await listen('manual-refresh', () => {
     handleRefresh();
+  });
+
+  unlistenTheme = await listen('theme-changed', (event: any) => {
+    const t = event.payload as 'dark' | 'light';
+    if (t === 'dark' || t === 'light') {
+      theme.value = t;
+      applyTheme(t);
+    }
   });
 
   handleRefresh();
@@ -93,7 +136,9 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (unlistenUsage) unlistenUsage();
+  if (unlistenCleared) unlistenCleared();
   if (unlistenRefresh) unlistenRefresh();
+  if (unlistenTheme) unlistenTheme();
 });
 </script>
 

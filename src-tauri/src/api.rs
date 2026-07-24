@@ -36,13 +36,21 @@ pub struct Detail {
     pub reset_time: String,
 }
 
-pub async fn fetch_usage(token: &str) -> Result<UsageData, reqwest::Error> {
+pub async fn fetch_usage(token: &str) -> Result<UsageData, String> {
     let client = reqwest::Client::new();
     let response = client
         .get("https://api.kimi.com/coding/v1/usages")
         .header("Authorization", format!("Bearer {}", token))
         .send()
-        .await?;
+        .await
+        .map_err(|e| format!("request failed: {}", e))?;
 
-    response.json::<UsageData>().await
+    if !response.status().is_success() {
+        return Err(format!("API error: {} {}", response.status().as_u16(), response.status().canonical_reason().unwrap_or("")));
+    }
+
+    response
+        .json::<UsageData>()
+        .await
+        .map_err(|e| format!("failed to parse response: {}", e))
 }

@@ -1,21 +1,42 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 
 const autoHideEnabled = ref(true);
 const token = ref('');
 const saving = ref(false);
 const message = ref('');
+const theme = ref<'dark' | 'light'>('light');
 
 const configPath = ref('');
+
+const applyTheme = (t: 'dark' | 'light') => {
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem('theme', t);
+};
 
 const load = async () => {
   try {
     autoHideEnabled.value = await invoke<boolean>('get_auto_hide_enabled');
     token.value = await invoke<string>('get_token');
     configPath.value = await invoke<string>('get_config_path');
+    const savedTheme = await invoke<'dark' | 'light'>('get_theme');
+    theme.value = savedTheme || 'light';
+    applyTheme(theme.value);
   } catch (e) {
     console.error('Failed to load settings:', e);
+  }
+};
+
+const toggleTheme = async () => {
+  const newTheme = theme.value === 'dark' ? 'light' : 'dark';
+  theme.value = newTheme;
+  applyTheme(newTheme);
+  try {
+    await invoke('set_theme', { theme: newTheme });
+  } catch (e) {
+    console.error('Failed to set theme:', e);
   }
 };
 
@@ -49,7 +70,22 @@ const close = async () => {
   await invoke('close_current_window');
 };
 
-onMounted(load);
+let unlistenTheme: (() => void) | undefined;
+
+onMounted(async () => {
+  await load();
+  unlistenTheme = await listen('theme-changed', (event: any) => {
+    const t = event.payload as 'dark' | 'light';
+    if (t === 'dark' || t === 'light') {
+      theme.value = t;
+      applyTheme(t);
+    }
+  });
+});
+
+onUnmounted(() => {
+  if (unlistenTheme) unlistenTheme();
+});
 </script>
 
 <template>
@@ -59,10 +95,18 @@ onMounted(load);
          class="h-12 flex items-center justify-between px-5 border-b shrink-0"
          style="-webkit-app-region: drag; border-color: var(--color-border)">
       <span class="font-semibold text-text-primary">⚙️ 设置</span>
+      <button
+        class="text-base px-2 py-1 rounded-md transition-colors"
+        style="-webkit-app-region: no-drag"
+        :title="theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'"
+        :style="{ background: 'var(--color-bg-line)' }"
+        @click="toggleTheme">
+        {{ theme === 'dark' ? '☀️' : '🌙' }}
+      </button>
     </div>
 
     <!-- 表单 -->
-    <div class="flex-1 p-6 flex flex-col gap-5 overflow-auto">
+    <div class="flex-1 p-6 flex flex-col gap-5 overflow-hidden">
       <!-- API Token -->
       <div class="flex flex-col gap-2">
         <label class="font-medium text-text-primary">API Token</label>
