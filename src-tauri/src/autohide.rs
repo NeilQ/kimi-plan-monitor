@@ -34,7 +34,7 @@ impl AutoHideState {
     }
 }
 
-const EDGE_THRESHOLD: i32 = 8; // 贴边阈值（物理像素，基于可见框架）
+const EDGE_THRESHOLD: i32 = 12; // 贴边阈值（物理像素，基于可见框架）
 const COLLAPSED_SIZE: u32 = 32; // 收起后的边宽（物理像素）
 const HIDE_DELAY_MS: u64 = 800; // 贴边后延迟收起
 const POLL_INTERVAL_MS: u64 = 200; // 轮询间隔
@@ -77,23 +77,23 @@ pub fn check_edge(window: &WebviewWindow) -> Option<Edge> {
         win_left, win_top, win_right, win_bottom
     );
 
-    // 检测左边缘
-    if (win_left - screen_left).abs() <= EDGE_THRESHOLD {
+    // 检测左边缘：窗口左边界在屏幕左边界的阈值范围内，或已经伸出屏幕外
+    if win_left <= screen_left + EDGE_THRESHOLD {
         return Some(Edge::Left);
     }
 
-    // 检测右边缘
-    if (win_right - screen_right).abs() <= EDGE_THRESHOLD {
+    // 检测右边缘：窗口右边界在屏幕右边界的阈值范围内，或已经伸出屏幕外
+    if win_right >= screen_right - EDGE_THRESHOLD {
         return Some(Edge::Right);
     }
 
     // 检测上边缘
-    if (win_top - screen_top).abs() <= EDGE_THRESHOLD {
+    if win_top <= screen_top + EDGE_THRESHOLD {
         return Some(Edge::Top);
     }
 
     // 检测下边缘
-    if (win_bottom - screen_bottom).abs() <= EDGE_THRESHOLD {
+    if win_bottom >= screen_bottom - EDGE_THRESHOLD {
         return Some(Edge::Bottom);
     }
 
