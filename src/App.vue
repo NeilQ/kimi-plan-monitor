@@ -1,160 +1,207 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import { invoke } from "@tauri-apps/api/core";
+import { ref, onMounted, onUnmounted } from 'vue';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
+import ParticleBackground from './components/ParticleBackground.vue';
+import UsageLine from './components/UsageLine.vue';
+import SettingsDialog from './components/SettingsDialog.vue';
 
-const greetMsg = ref("");
-const name = ref("");
+const weeklyUsed = ref('--%');
+const weeklyRemaining = ref('--%');
+const weeklyResetTime = ref('--');
+const hourlyUsed = ref('--%');
+const hourlyRemaining = ref('--%');
+const hourlyResetTime = ref('--');
+const lastUpdateTime = ref('--:--:--');
+const isRefreshing = ref(false);
+const settingsDialog = ref<InstanceType<typeof SettingsDialog>>();
 
-async function greet() {
-  // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-  greetMsg.value = await invoke("greet", { name: name.value });
-}
+const handleRefresh = async () => {
+  isRefreshing.value = true;
+  try {
+    await invoke('refresh_usage');
+  } finally {
+    setTimeout(() => {
+      isRefreshing.value = false;
+    }, 600);
+  }
+};
+
+const updateUsage = (data: any) => {
+  // 计算周用量百分比
+  const weeklyLimit = parseInt(data.usage.limit);
+  const weeklyUsedCount = parseInt(data.usage.used);
+  const weeklyUsedPercent = Math.round((weeklyUsedCount / weeklyLimit) * 100);
+  const weeklyRemainingPercent = 100 - weeklyUsedPercent;
+
+  weeklyUsed.value = `${weeklyUsedPercent}%`;
+  weeklyRemaining.value = `${weeklyRemainingPercent}%`;
+  weeklyResetTime.value = formatResetTime(data.usage.resetTime);
+
+  // 计算5小时用量百分比
+  const hourlyLimit = data.limits[0];
+  const hourlyLimitCount = parseInt(hourlyLimit.detail.limit);
+  const hourlyRemainingCount = parseInt(hourlyLimit.detail.remaining);
+  const hourlyUsedCount = hourlyLimitCount - hourlyRemainingCount;
+  const hourlyUsedPercent = Math.round((hourlyUsedCount / hourlyLimitCount) * 100);
+  const hourlyRemainingPercent = 100 - hourlyUsedPercent;
+
+  hourlyUsed.value = `${hourlyUsedPercent}%`;
+  hourlyRemaining.value = `${hourlyRemainingPercent}%`;
+  hourlyResetTime.value = formatResetTime(hourlyLimit.detail.resetTime);
+
+  // 更新最后刷新时间
+  const now = new Date();
+  lastUpdateTime.value = now.toLocaleTimeString('zh-CN', { hour12: false });
+};
+
+const formatResetTime = (isoString: string) => {
+  const date = new Date(isoString);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
+let unlistenUsage: (() => void) | undefined;
+let unlistenSettings: (() => void) | undefined;
+let unlistenRefresh: (() => void) | undefined;
+
+onMounted(async () => {
+  // 监听后端推送的用量更新事件
+  unlistenUsage = await listen('usage-updated', (event: any) => {
+    updateUsage(event.payload);
+  });
+
+  // 监听打开设置事件
+  unlistenSettings = await listen('open-settings', () => {
+    settingsDialog.value?.open();
+  });
+
+  // 监听手动刷新事件
+  unlistenRefresh = await listen('manual-refresh', () => {
+    handleRefresh();
+  });
+
+  // 初始加载
+  handleRefresh();
+});
+
+onUnmounted(() => {
+  if (unlistenUsage) unlistenUsage();
+  if (unlistenSettings) unlistenSettings();
+  if (unlistenRefresh) unlistenRefresh();
+});
 </script>
 
 <template>
-  <main class="container">
-    <h1>Welcome to Tauri + Vue</h1>
+  <div class="app">
+    <ParticleBackground />
 
-    <div class="row">
-      <a href="https://vite.dev" target="_blank">
-        <img src="/vite.svg" class="logo vite" alt="Vite logo" />
-      </a>
-      <a href="https://tauri.app" target="_blank">
-        <img src="/tauri.svg" class="logo tauri" alt="Tauri logo" />
-      </a>
-      <a href="https://vuejs.org/" target="_blank">
-        <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
-      </a>
+    <div class="container">
+      <div class="header">
+        <span class="title">⚡ Kimi Plan</span>
+        <button
+          class="refresh-btn"
+          :class="{ spinning: isRefreshing }"
+          @click="handleRefresh"
+        >
+          🔄
+        </button>
+      </div>
+
+      <UsageLine
+        icon="📅"
+        label="周用量"
+        :used="weeklyUsed"
+        :remaining="weeklyRemaining"
+        :reset-time="weeklyResetTime"
+      />
+
+      <UsageLine
+        icon="⏱️"
+        label="5小时"
+        :used="hourlyUsed"
+        :remaining="hourlyRemaining"
+        :reset-time="hourlyResetTime"
+      />
+
+      <div class="footer">
+        <span class="update-time">✨ {{ lastUpdateTime }}</span>
+      </div>
     </div>
-    <p>Click on the Tauri, Vite, and Vue logos to learn more.</p>
 
-    <form class="row" @submit.prevent="greet">
-      <input id="greet-input" v-model="name" placeholder="Enter a name..." />
-      <button type="submit">Greet</button>
-    </form>
-    <p>{{ greetMsg }}</p>
-  </main>
+    <SettingsDialog ref="settingsDialog" />
+  </div>
 </template>
 
 <style scoped>
-.logo.vite:hover {
-  filter: drop-shadow(0 0 2em #747bff);
-}
-
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #249b73);
-}
-
-</style>
-<style>
-:root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 400;
-
-  color: #0f0f0f;
-  background-color: #f6f6f6;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
+.app {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
 }
 
 .container {
-  margin: 0;
-  padding-top: 10vh;
+  position: relative;
+  z-index: 1;
+  padding: 12px;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  text-align: center;
+  gap: 8px;
+  -webkit-app-region: drag;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: 0.75s;
-}
-
-.logo.tauri:hover {
-  filter: drop-shadow(0 0 2em #24c8db);
-}
-
-.row {
+.header {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e0e0ff;
 }
 
-a:hover {
-  color: #535bf2;
-}
-
-h1 {
-  text-align: center;
-}
-
-input,
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  color: #0f0f0f;
-  background-color: #ffffff;
-  transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
-}
-
-button {
+.refresh-btn {
+  background: none;
+  border: none;
+  font-size: 16px;
   cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+  -webkit-app-region: no-drag;
 }
 
-button:hover {
-  border-color: #396cd8;
-}
-button:active {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
+.refresh-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
-input,
-button {
-  outline: none;
+.refresh-btn.spinning {
+  animation: spin 0.6s linear;
 }
 
-#greet-input {
-  margin-right: 5px;
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #f6f6f6;
-    background-color: #2f2f2f;
-  }
-
-  a:hover {
-    color: #24c8db;
-  }
-
-  input,
-  button {
-    color: #ffffff;
-    background-color: #0f0f0f98;
-  }
-  button:active {
-    background-color: #0f0f0f69;
-  }
+.footer {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.update-time {
+  font-size: 11px;
+  color: #8a8aaa;
+}
 </style>
