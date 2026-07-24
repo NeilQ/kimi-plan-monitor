@@ -9,7 +9,7 @@ use std::time::Duration;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{TrayIconBuilder, TrayIconEvent},
-    Manager, State, WindowEvent,
+    Emitter, Manager, State, WindowEvent,
 };
 use tauri_plugin_store::StoreExt;
 
@@ -125,7 +125,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .manage(app_state)
-        .setup(|app| {
+        .setup(move |app| {
             let usage_data = usage_data.clone();
             let token = token.clone();
             let auto_hide_state = auto_hide_state.clone();
@@ -204,7 +204,7 @@ pub fn run() {
             start_polling_task(app_handle, usage_data.clone(), token.clone());
 
             // 启动贴边自动收起任务
-            if let Some(window) = app.get_window("main") {
+            if let Some(window) = app.get_webview_window("main") {
                 autohide::start_auto_hide_task(window, auto_hide_state.clone());
             }
 

@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use tauri::{Manager, PhysicalPosition, PhysicalSize, Window};
+use tauri::{PhysicalPosition, PhysicalSize, WebviewWindow};
 
 // 贴边收起状态
 pub struct AutoHideState {
@@ -32,7 +32,7 @@ impl AutoHideState {
 }
 
 // 检测窗口是否贴边
-pub fn check_edge(window: &Window) -> Option<Edge> {
+pub fn check_edge(window: &WebviewWindow) -> Option<Edge> {
     let monitor = window.current_monitor().ok()??;
     let screen_size = monitor.size();
     let screen_pos = monitor.position();
@@ -66,7 +66,7 @@ pub fn check_edge(window: &Window) -> Option<Edge> {
 }
 
 // 收起窗口
-pub async fn hide_window(window: &Window, edge: Edge, state: Arc<Mutex<AutoHideState>>) {
+pub async fn hide_window(window: &WebviewWindow, edge: Edge, state: Arc<Mutex<AutoHideState>>) {
     let mut state = state.lock().unwrap();
 
     if state.is_hidden {
@@ -111,7 +111,8 @@ pub async fn hide_window(window: &Window, edge: Edge, state: Arc<Mutex<AutoHideS
 }
 
 // 展开窗口
-pub async fn show_window(window: &Window, state: Arc<Mutex<AutoHideState>>) {
+#[allow(dead_code)]
+pub async fn show_window(window: &WebviewWindow, state: Arc<Mutex<AutoHideState>>) {
     let mut state = state.lock().unwrap();
 
     if !state.is_hidden {
@@ -127,7 +128,7 @@ pub async fn show_window(window: &Window, state: Arc<Mutex<AutoHideState>>) {
 }
 
 // 启动贴边检测任务
-pub fn start_auto_hide_task(window: Window, state: Arc<Mutex<AutoHideState>>) {
+pub fn start_auto_hide_task(window: WebviewWindow, state: Arc<Mutex<AutoHideState>>) {
     tauri::async_runtime::spawn(async move {
         loop {
             tokio::time::sleep(Duration::from_millis(500)).await;
