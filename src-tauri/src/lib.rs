@@ -1,7 +1,9 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 mod api;
+mod autohide;
 
 use api::UsageData;
+use autohide::AutoHideState;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{
@@ -14,6 +16,7 @@ use tauri::{
 struct AppState {
     usage_data: Arc<Mutex<Option<UsageData>>>,
     token: Arc<Mutex<String>>,
+    auto_hide_state: Arc<Mutex<AutoHideState>>,
 }
 
 #[tauri::command]
@@ -43,6 +46,16 @@ async fn refresh_usage(state: State<'_, AppState>, app_handle: tauri::AppHandle)
         }
         Err(e) => Err(format!("Failed to fetch usage: {}", e)),
     }
+}
+
+#[tauri::command]
+fn get_auto_hide_enabled(state: State<'_, AppState>) -> bool {
+    state.auto_hide_state.lock().unwrap().enabled
+}
+
+#[tauri::command]
+fn set_auto_hide_enabled(state: State<'_, AppState>, enabled: bool) {
+    state.auto_hide_state.lock().unwrap().enabled = enabled;
 }
 
 // 启动定时轮询任务
@@ -86,10 +99,12 @@ fn start_polling_task(app_handle: tauri::AppHandle, state: Arc<Mutex<Option<Usag
 pub fn run() {
     let usage_data = Arc::new(Mutex::new(None));
     let token = Arc::new(Mutex::new("***REDACTED-TOKEN***".to_string()));
+    let auto_hide_state = Arc::new(Mutex::new(AutoHideState::new()));
 
     let app_state = AppState {
         usage_data: usage_data.clone(),
         token: token.clone(),
+        auto_hide_state: auto_hide_state.clone(),
     };
 
     tauri::Builder::default()
@@ -99,6 +114,7 @@ pub fn run() {
         .setup(|app| {
             let usage_data = usage_data.clone();
             let token = token.clone();
+            let auto_hide_state = auto_hide_state.clone();
 
             // 创建托盘菜单
             let show_item = MenuItem::with_id(app, "show", "显示/隐藏", true, None::<&str>)?;
@@ -154,6 +170,11 @@ pub fn run() {
             let app_handle = app.handle().clone();
             start_polling_task(app_handle, usage_data.clone(), token.clone());
 
+            // 启动贴边自动收起任务
+            if let Some(window) = app.get_window("main") {
+                autohide::start_auto_hide_task(window, auto_hide_state.clone());
+            }
+
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -163,7 +184,7 @@ pub fn run() {
                 api.prevent_close();
             }
         })
-        .invoke_handler(tauri::generate_handler![greet, refresh_usage])
+        .invoke_handler(tauri::generate_handler![greet, refresh_usage, get_auto_hide_enabled, set_auto_hide_enabled])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
