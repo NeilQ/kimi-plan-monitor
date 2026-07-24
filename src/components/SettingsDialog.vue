@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 
 const visible = ref(false);
 const autoHideEnabled = ref(true);
+const token = ref('');
 
 const emit = defineEmits<{
   close: [];
@@ -15,8 +16,11 @@ const open = async () => {
   try {
     const enabled = await invoke<boolean>('get_auto_hide_enabled');
     autoHideEnabled.value = enabled;
+
+    const savedToken = await invoke<string>('get_token');
+    token.value = savedToken;
   } catch (e) {
-    console.error('Failed to load auto-hide setting:', e);
+    console.error('Failed to load settings:', e);
   }
 };
 
@@ -33,6 +37,14 @@ const handleAutoHideChange = async () => {
   }
 };
 
+const handleTokenChange = async () => {
+  try {
+    await invoke('set_token', { token: token.value });
+  } catch (e) {
+    console.error('Failed to save token:', e);
+  }
+};
+
 defineExpose({ open });
 </script>
 
@@ -45,6 +57,18 @@ defineExpose({ open });
       </div>
 
       <div class="settings-body">
+        <div class="setting-item">
+          <label class="setting-label-text">API Token</label>
+          <input
+            type="text"
+            class="token-input"
+            v-model="token"
+            @blur="handleTokenChange"
+            placeholder="sk-kimi-..."
+          />
+          <p class="setting-desc">Kimi Code Plan 的 API Token</p>
+        </div>
+
         <div class="setting-item">
           <label class="setting-label">
             <input
@@ -83,7 +107,7 @@ defineExpose({ open });
 .settings-dialog {
   background: #1a1a2e;
   border-radius: 12px;
-  width: 360px;
+  width: 400px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -128,7 +152,36 @@ defineExpose({ open });
 }
 
 .setting-item {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+}
+
+.setting-label-text {
+  display: block;
+  color: #e0e0ff;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.token-input {
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #e0e0ff;
+  font-size: 13px;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.token-input:focus {
+  border-color: #00d4ff;
+}
+
+.token-input::placeholder {
+  color: #4a4a6a;
 }
 
 .setting-label {
@@ -150,7 +203,6 @@ defineExpose({ open });
 
 .setting-desc {
   margin-top: 6px;
-  margin-left: 26px;
   font-size: 12px;
   color: #8a8aaa;
   line-height: 1.5;

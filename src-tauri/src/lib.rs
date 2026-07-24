@@ -11,6 +11,7 @@ use tauri::{
     tray::{TrayIconBuilder, TrayIconEvent},
     Manager, State, WindowEvent,
 };
+use tauri_plugin_store::StoreExt;
 
 // 全局状态
 struct AppState {
@@ -58,6 +59,16 @@ fn set_auto_hide_enabled(state: State<'_, AppState>, enabled: bool) {
     state.auto_hide_state.lock().unwrap().enabled = enabled;
 }
 
+#[tauri::command]
+fn get_token(state: State<'_, AppState>) -> String {
+    state.token.lock().unwrap().clone()
+}
+
+#[tauri::command]
+fn set_token(state: State<'_, AppState>, token: String) {
+    *state.token.lock().unwrap() = token;
+}
+
 // 启动定时轮询任务
 fn start_polling_task(app_handle: tauri::AppHandle, state: Arc<Mutex<Option<UsageData>>>, token: Arc<Mutex<String>>) {
     tauri::async_runtime::spawn(async move {
@@ -98,8 +109,11 @@ fn start_polling_task(app_handle: tauri::AppHandle, state: Arc<Mutex<Option<Usag
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let usage_data = Arc::new(Mutex::new(None));
-    let token = Arc::new(Mutex::new("***REDACTED-TOKEN***".to_string()));
     let auto_hide_state = Arc::new(Mutex::new(AutoHideState::new()));
+
+    // 默认 Token
+    let default_token = "***REDACTED-TOKEN***".to_string();
+    let token = Arc::new(Mutex::new(default_token));
 
     let app_state = AppState {
         usage_data: usage_data.clone(),
@@ -115,6 +129,25 @@ pub fn run() {
             let usage_data = usage_data.clone();
             let token = token.clone();
             let auto_hide_state = auto_hide_state.clone();
+
+            // 从 store 读取 Token
+            let store = app.store("config.json").expect("failed to open store");
+            if let Some(saved_token) = store.get("token") {
+                if let Some(token_str) = saved_token.as_str() {
+                    *token.lock().unwrap() = token_str.to_string();
+                }
+            } else {
+                // 如果没有保存的 Token，保存默认值
+                store.set("token", serde_json::json!(token.lock().unwrap().clone()));
+                let _ = store.save();
+            }
+
+            // 从 store 读取自动收起设置
+            if let Some(enabled) = store.get("auto_hide_enabled") {
+                if let Some(enabled_bool) = enabled.as_bool() {
+                    auto_hide_state.lock().unwrap().enabled = enabled_bool;
+                }
+            }
 
             // 创建托盘菜单
             let show_item = MenuItem::with_id(app, "show", "显示/隐藏", true, None::<&str>)?;
@@ -184,7 +217,7 @@ pub fn run() {
                 api.prevent_close();
             }
         })
-        .invoke_handler(tauri::generate_handler![greet, refresh_usage, get_auto_hide_enabled, set_auto_hide_enabled])
+        .invoke_handler(tauri::generate_handler![greet, refresh_usage, get_auto_hide_enabled, set_auto_hide_enabled, get_token, set_token])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
