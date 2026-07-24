@@ -80,7 +80,35 @@ fn set_token(state: State<'_, AppState>, app_handle: tauri::AppHandle, token: St
     store.set("token", serde_json::json!(token));
     store.save().map_err(|e| format!("failed to save store: {}", e))?;
 
+    // 保存成功后由后端异步刷新一次并推送给主窗口
+    // 不让设置窗口自己 invoke refresh_usage，避免窗口关闭后 Promise 回传失败
+    if !token.is_empty() {
+        tauri::async_runtime::spawn(async move {
+            if let Ok(data) = api::fetch_usage(&token).await {
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    let _ = window.emit("usage-updated", data);
+                }
+            }
+        });
+    }
+
     Ok(())
+}
+
+#[tauri::command]
+fn get_config_path(app_handle: tauri::AppHandle) -> Result<String, String> {
+    let path = app_handle
+        .path()
+        .app_config_dir()
+        .map_err(|e| format!("failed to get app config dir: {}", e))?
+        .join("config.json");
+    Ok(path.to_string_lossy().to_string())
+}
+
+// 关闭当前调用窗口（后端关窗不受前端 ACL 权限限制）
+#[tauri::command]
+fn close_current_window(window: tauri::Window) -> Result<(), String> {
+    window.close().map_err(|e| format!("failed to close window: {}", e))
 }
 
 // 激活窗口：若被遮挡、最小化或不可见则拉到前台
@@ -95,11 +123,24 @@ fn activate_window(window: &tauri::WebviewWindow) {
 // 打开或激活设置窗口
 fn open_settings_window(app: &tauri::AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("settings") {
-        activate_window(&window);
+        // 已存在：取消最小化并显示、置顶、聚焦
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_always_on_top(true);
+        let _ = window.set_focus();
         Ok(())
     } else {
-        let _window = WebviewWindowBuilder::from_config(app, app.config().app.windows.get(1).expect("settings window config missing"))
-            .map_err(|e| format!("failed to build settings window: {}", e))?
+        // 不存在：动态创建，关闭即销毁
+        let _window = WebviewWindowBuilder::new(app, "settings", tauri::WebviewUrl::App("settings.html".into()))
+            .title("设置")
+            .inner_size(420.0, 320.0)
+            .decorations(true)
+            .always_on_top(true)
+            .resizable(false)
+            .center()
+            .skip_taskbar(false)
+            .transparent(false)
+            .visible(true)
             .build()
             .map_err(|e| format!("failed to create settings window: {}", e))?;
         Ok(())
@@ -266,7 +307,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![greet, refresh_usage, get_auto_hide_enabled, set_auto_hide_enabled, get_token, set_token])
+        .invoke_handler(tauri::generate_handler![greet, refresh_usage, get_auto_hide_enabled, set_auto_hide_enabled, get_token, set_token, get_config_path, close_current_window])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

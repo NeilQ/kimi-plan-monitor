@@ -1,17 +1,19 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 
 const autoHideEnabled = ref(true);
 const token = ref('');
 const saving = ref(false);
 const message = ref('');
 
+const configPath = ref('');
+
 const load = async () => {
   try {
     autoHideEnabled.value = await invoke<boolean>('get_auto_hide_enabled');
     token.value = await invoke<string>('get_token');
+    configPath.value = await invoke<string>('get_config_path');
   } catch (e) {
     console.error('Failed to load settings:', e);
   }
@@ -24,9 +26,16 @@ const save = async () => {
     await invoke('set_auto_hide_enabled', { enabled: autoHideEnabled.value });
     await invoke('set_token', { token: token.value });
     message.value = '保存成功';
-    setTimeout(() => {
-      message.value = '';
-    }, 2000);
+
+    // 刷新由后端 set_token 自动触发；关窗改成 fire-and-forget
+    // 避免 close() 的 Promise 在 WebView 销毁后 reject，误报"保存失败"
+    if (token.value.trim().length > 0) {
+      void close();
+    } else {
+      setTimeout(() => {
+        message.value = '';
+      }, 2000);
+    }
   } catch (e) {
     console.error('Failed to save settings:', e);
     message.value = '保存失败';
@@ -36,7 +45,8 @@ const save = async () => {
 };
 
 const close = async () => {
-  await getCurrentWindow().close();
+  // 走后端关窗，绕开前端 ACL 权限检查（JS 的 window.close 会被权限系统拦截）
+  await invoke('close_current_window');
 };
 
 onMounted(load);
@@ -46,19 +56,9 @@ onMounted(load);
   <div class="w-screen h-screen flex flex-col text-sm" :style="{ background: 'var(--color-bg-base)' }">
     <!-- 标题栏 -->
     <div
-      class="h-12 flex items-center justify-between px-5 border-b shrink-0"
-      style="-webkit-app-region: drag; border-color: var(--color-border)"
-    >
+         class="h-12 flex items-center justify-between px-5 border-b shrink-0"
+         style="-webkit-app-region: drag; border-color: var(--color-border)">
       <span class="font-semibold text-text-primary">⚙️ 设置</span>
-      <button
-        class="w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:text-text-primary transition-colors"
-        style="-webkit-app-region: no-drag"
-        :style="{ '--tw-hover-bg': 'var(--color-hover)' }"
-        title="关闭"
-        @click="close"
-      >
-        ✕
-      </button>
     </div>
 
     <!-- 表单 -->
@@ -67,32 +67,32 @@ onMounted(load);
       <div class="flex flex-col gap-2">
         <label class="font-medium text-text-primary">API Token</label>
         <input
-          v-model="token"
-          type="text"
-          placeholder="sk-kimi-..."
-          class="w-full px-3 py-2 rounded-md text-[13px] font-mono outline-none transition-colors"
-          :style="{
-            background: 'var(--color-bg-line)',
-            border: '1px solid var(--color-border)',
-            color: 'var(--color-text-primary)',
-          }"
-          style="--tw-focus-border: var(--color-accent-cyan)"
-        />
+               v-model="token"
+               type="text"
+               placeholder="sk-kimi-..."
+               class="w-full px-3 py-2 rounded-md text-[13px] font-mono outline-none transition-colors"
+               :style="{
+                background: 'var(--color-bg-line)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text-primary)',
+              }"
+               style="--tw-focus-border: var(--color-accent-cyan)" />
         <p class="text-xs leading-relaxed" :style="{ color: 'var(--color-text-secondary)' }">
           Kimi Code Plan 的 API Token，仅保存在本地配置文件中。
+        </p>
+        <p class="text-[11px] leading-relaxed break-all font-mono" :style="{ color: 'var(--color-text-muted)' }">
+          {{ configPath }}
         </p>
       </div>
 
       <!-- 贴边自动收起 -->
       <div class="flex flex-col gap-2">
-        <label class="flex items-center gap-3 cursor-pointer select-none"
-        >
+        <label class="flex items-center gap-3 cursor-pointer select-none">
           <input
-            v-model="autoHideEnabled"
-            type="checkbox"
-            class="w-[18px] h-[18px] cursor-pointer"
-            :style="{ accentColor: 'var(--color-accent-cyan)' }"
-          />
+                 v-model="autoHideEnabled"
+                 type="checkbox"
+                 class="w-[18px] h-[18px] cursor-pointer"
+                 :style="{ accentColor: 'var(--color-accent-cyan)' }" />
           <span class="font-medium text-text-primary">贴边自动收起</span>
         </label>
         <p class="text-xs leading-relaxed ml-[26px]" :style="{ color: 'var(--color-text-secondary)' }">
@@ -102,28 +102,23 @@ onMounted(load);
     </div>
 
     <!-- 底部按钮 -->
-    <div
-      class="h-16 flex items-center justify-between px-5 border-t shrink-0"
-      :style="{ borderColor: 'var(--color-border)' }"
-    >
+    <div class="h-16 flex items-center justify-between px-5 border-t shrink-0"
+         :style="{ borderColor: 'var(--color-border)' }">
       <span class="text-xs" :style="{ color: 'var(--color-success)' }">{{ message }}</span>
       <div class="flex items-center gap-3">
         <button
-          class="px-4 py-2 rounded-md text-text-secondary hover:text-text-primary transition-colors"
-          :style="{ background: 'var(--color-hover)' }"
-          @click="close"
-        >
+                class="px-4 py-2 rounded-md text-text-secondary hover:text-text-primary transition-colors"
+                :style="{ background: 'var(--color-hover)' }"
+                @click="close">
           取消
         </button>
-        <button
-          class="px-5 py-2 rounded-md text-white font-medium transition-all hover:-translate-y-px hover:shadow-lg active:translate-y-0 disabled:opacity-50"
-          :class="{ 'opacity-70 cursor-not-allowed': saving }"
-          :style="{
-            background: 'linear-gradient(135deg, var(--color-accent-cyan), var(--color-accent-purple))',
-          }"
-          :disabled="saving"
-          @click="save"
-        >
+        <button class="px-5 py-2 rounded-md text-white font-medium transition-all hover:-translate-y-px hover:shadow-lg active:translate-y-0 disabled:opacity-50"
+                :class="{ 'opacity-70 cursor-not-allowed': saving }"
+                :style="{
+                  background: 'linear-gradient(135deg, var(--color-accent-cyan), var(--color-accent-purple))',
+                }"
+                :disabled="saving"
+                @click="save">
           {{ saving ? '保存中...' : '保存' }}
         </button>
       </div>

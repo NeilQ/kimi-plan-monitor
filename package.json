@@ -8,7 +8,8 @@
     "build": "vite build",
     "typecheck": "vue-tsc --noEmit",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "pack": "tauri build --no-bundle && echo \"Green exe output: src-tauri\\target\\release\\kimi-plan-monitor.exe\""
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

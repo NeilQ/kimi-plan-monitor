@@ -15,7 +15,7 @@ const isRefreshing = ref(false);
 
 // 主题
 const theme = ref<'dark' | 'light'>(
-  (localStorage.getItem('theme') as 'dark' | 'light') || 'dark'
+  (localStorage.getItem('theme') as 'dark' | 'light') || 'light'
 );
 
 const applyTheme = (t: 'dark' | 'light') => {

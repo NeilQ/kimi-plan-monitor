@@ -20,7 +20,7 @@
   --color-text-secondary: #8a8aaa;
   --color-text-muted: #4a4a6a;
   --color-overlay: rgba(0, 0, 0, 0.5);
-   --color-accent-blue: #4096ff;
+  --color-accent-blue: #4096ff;
   --color-success: #52c41a;
 }
 
@@ -35,6 +35,8 @@
   --color-text-secondary: #6a6a8a;
   --color-text-muted: #b0b0c8;
   --color-overlay: rgba(255, 255, 255, 0.6);
+  --color-accent-blue: #096dd9;
+  --color-success: #237804;
 }
 
 body {
