@@ -28,7 +28,6 @@ const handleRefresh = async () => {
 };
 
 const updateUsage = (data: any) => {
-  // 计算周用量百分比
   const weeklyLimit = parseInt(data.usage.limit);
   const weeklyUsedCount = parseInt(data.usage.used);
   const weeklyUsedPercent = Math.round((weeklyUsedCount / weeklyLimit) * 100);
@@ -38,7 +37,6 @@ const updateUsage = (data: any) => {
   weeklyRemaining.value = `${weeklyRemainingPercent}%`;
   weeklyResetTime.value = formatResetTime(data.usage.resetTime);
 
-  // 计算5小时用量百分比
   const hourlyLimit = data.limits[0];
   const hourlyLimitCount = parseInt(hourlyLimit.detail.limit);
   const hourlyRemainingCount = parseInt(hourlyLimit.detail.remaining);
@@ -50,7 +48,6 @@ const updateUsage = (data: any) => {
   hourlyRemaining.value = `${hourlyRemainingPercent}%`;
   hourlyResetTime.value = formatResetTime(hourlyLimit.detail.resetTime);
 
-  // 更新最后刷新时间
   const now = new Date();
   lastUpdateTime.value = now.toLocaleTimeString('zh-CN', { hour12: false });
 };
@@ -70,22 +67,18 @@ let unlistenSettings: (() => void) | undefined;
 let unlistenRefresh: (() => void) | undefined;
 
 onMounted(async () => {
-  // 监听后端推送的用量更新事件
   unlistenUsage = await listen('usage-updated', (event: any) => {
     updateUsage(event.payload);
   });
 
-  // 监听打开设置事件
   unlistenSettings = await listen('open-settings', () => {
     settingsDialog.value?.open();
   });
 
-  // 监听手动刷新事件
   unlistenRefresh = await listen('manual-refresh', () => {
     handleRefresh();
   });
 
-  // 初始加载
   handleRefresh();
 });
 
@@ -97,15 +90,19 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="app">
+  <div class="w-screen h-screen relative overflow-hidden">
     <ParticleBackground />
 
-    <div class="container">
-      <div class="header">
-        <span class="title">⚡ Kimi Plan</span>
+    <div
+      class="relative z-10 h-full flex flex-col gap-2 p-3"
+      style="-webkit-app-region: drag"
+    >
+      <div class="flex justify-between items-center pb-2 border-b border-white/10">
+        <span class="text-sm font-semibold text-text-primary">⚡ Kimi Plan</span>
         <button
-          class="refresh-btn"
-          :class="{ spinning: isRefreshing }"
+          class="bg-transparent border-none text-base cursor-pointer px-2 py-1 rounded-md transition-colors hover:bg-white/10"
+          :class="{ 'animate-spin-once': isRefreshing }"
+          style="-webkit-app-region: no-drag"
           @click="handleRefresh"
         >
           🔄
@@ -128,8 +125,8 @@ onUnmounted(() => {
         :reset-time="hourlyResetTime"
       />
 
-      <div class="footer">
-        <span class="update-time">✨ {{ lastUpdateTime }}</span>
+      <div class="mt-auto pt-2 border-t border-white/10">
+        <span class="text-[11px] text-text-secondary">✨ {{ lastUpdateTime }}</span>
       </div>
     </div>
 
@@ -138,70 +135,16 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.app {
-  width: 100vw;
-  height: 100vh;
-  position: relative;
-  overflow: hidden;
+@keyframes spin-once {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-.container {
-  position: relative;
-  z-index: 1;
-  padding: 12px;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  -webkit-app-region: drag;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #e0e0ff;
-}
-
-.refresh-btn {
-  background: none;
-  border: none;
-  font-size: 16px;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 6px;
-  transition: background-color 0.2s;
-  -webkit-app-region: no-drag;
-}
-
-.refresh-btn:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.refresh-btn.spinning {
-  animation: spin 0.6s linear;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.footer {
-  margin-top: auto;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.update-time {
-  font-size: 11px;
-  color: #8a8aaa;
+.animate-spin-once {
+  animation: spin-once 0.6s linear;
 }
 </style>

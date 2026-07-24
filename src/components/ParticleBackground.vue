@@ -89,16 +89,5 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <canvas ref="canvasRef" class="particle-canvas"></canvas>
+  <canvas ref="canvasRef" class="absolute top-0 left-0 w-full h-full z-0"></canvas>
 </template>
-
-<style scoped>
-.particle-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
-}
-</style>
