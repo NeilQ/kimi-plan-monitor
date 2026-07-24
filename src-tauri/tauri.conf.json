@@ -12,9 +12,14 @@
   "app": {
     "windows": [
       {
-        "title": "kimi-plan-monitor",
-        "width": 800,
-        "height": 600
+        "title": "Kimi Plan Monitor",
+        "width": 320,
+        "height": 120,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "resizable": true,
+        "skipTaskbar": true,
+        "transparent": true
       }
     ],
     "security": {
