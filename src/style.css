@@ -3,9 +3,9 @@
 @theme {
   --color-accent-cyan: #00d4ff;
   --color-accent-purple: #7b2cbf;
-  --color-accent-blue: #4a90e2;
+  --color-accent-blue: #096dd9;
   --color-danger: #ff6b6b;
-  --color-success: #51cf66;
+  --color-success: #237804;
 }
 
 /* 深色主题（默认） */
@@ -20,6 +20,8 @@
   --color-text-secondary: #8a8aaa;
   --color-text-muted: #4a4a6a;
   --color-overlay: rgba(0, 0, 0, 0.5);
+   --color-accent-blue: #4096ff;
+  --color-success: #52c41a;
 }
 
 /* 浅色主题 */
@@ -45,6 +47,6 @@ body {
 }
 
 #app {
-  width: 290px;
+  width: 260px;
   height: 80px;
 }

@@ -167,20 +167,91 @@ async fn animate_window(
         let progress = frame as f64 / TOTAL_FRAMES as f64;
         let eased = ease_out_cubic(progress);
 
-        let width = (from_size.width as f64 + (to_size.width as f64 - from_size.width as f64) * eased) as u32;
-        let height = (from_size.height as f64 + (to_size.height as f64 - from_size.height as f64) * eased) as u32;
+        let width =
+            (from_size.width as f64 + (to_size.width as f64 - from_size.width as f64) * eased)
+                as u32;
+        let height =
+            (from_size.height as f64 + (to_size.height as f64 - from_size.height as f64) * eased)
+                as u32;
         let x = (from_pos.x as f64 + (to_pos.x as f64 - from_pos.x as f64) * eased) as i32;
         let y = (from_pos.y as f64 + (to_pos.y as f64 - from_pos.y as f64) * eased) as i32;
 
-        let _ = window.set_size(PhysicalSize::new(width, height));
-        let _ = window.set_position(PhysicalPosition::new(x, y));
+        set_window_pos_atomic(window, x, y, width, height);
 
         tokio::time::sleep(Duration::from_millis(FRAME_INTERVAL_MS)).await;
     }
 
-    // 最后一帧强制精确值，避免浮点误差
-    let _ = window.set_size(to_size);
-    let _ = window.set_position(to_pos);
+    // 最后一帧强制精确值
+    set_window_pos_atomic(window, to_pos.x, to_pos.y, to_size.width, to_size.height);
+}
+
+// Windows 平台：用 Win32 SetWindowPos 一次性原子设置位置+尺寸，避免 Tauri 两次 IPC 的抖动
+#[cfg(target_os = "windows")]
+fn set_window_pos_atomic(window: &WebviewWindow, x: i32, y: i32, width: u32, height: u32) {
+    use std::mem::MaybeUninit;
+
+    #[repr(C)]
+    struct RECT {
+        left: i32,
+        top: i32,
+        right: i32,
+        bottom: i32,
+    }
+
+    extern "system" {
+        fn SetWindowPos(
+            hwnd: isize,
+            hWndInsertAfter: isize,
+            x: i32,
+            y: i32,
+            cx: i32,
+            cy: i32,
+            uFlags: u32,
+        ) -> i32;
+        fn GetWindowRect(hwnd: isize, lpRect: *mut RECT) -> i32;
+    }
+
+    const SWP_NOZORDER: u32 = 0x0004;
+    const SWP_NOACTIVATE: u32 = 0x0010;
+    const SWP_ASYNCWINDOWPOS: u32 = 0x4000;
+
+    let hwnd = match window.hwnd() {
+        Ok(h) => h.0 as isize,
+        Err(_) => return,
+    };
+
+    unsafe {
+        // SetWindowPos 的 cx/cy 是客户区？不，是窗口 outer 尺寸。
+        // 但 inner_size 给的是客户区尺寸，需要加上边框偏移。
+        // 我们保存的是 inner_size，但 SetWindowPos 需要 outer 尺寸。
+        // 用当前 outer 和 inner 的差值来估算。
+        let mut rect: MaybeUninit<RECT> = MaybeUninit::uninit();
+        let outer = if GetWindowRect(hwnd, rect.as_mut_ptr()) != 0 {
+            let r = rect.assume_init();
+            PhysicalSize::new((r.right - r.left) as u32, (r.bottom - r.top) as u32)
+        } else {
+            PhysicalSize::new(width, height)
+        };
+        let inner = window.inner_size().unwrap_or(outer);
+        let dx = outer.width.saturating_sub(inner.width);
+        let dy = outer.height.saturating_sub(inner.height);
+
+        SetWindowPos(
+            hwnd,
+            0,
+            x,
+            y,
+            (width + dx) as i32,
+            (height + dy) as i32,
+            SWP_NOZORDER | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS,
+        );
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn set_window_pos_atomic(window: &WebviewWindow, x: i32, y: i32, width: u32, height: u32) {
+    let _ = window.set_size(PhysicalSize::new(width, height));
+    let _ = window.set_position(PhysicalPosition::new(x, y));
 }
 
 // 收起窗口

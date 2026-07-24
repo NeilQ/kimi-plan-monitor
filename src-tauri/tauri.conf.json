@@ -12,6 +12,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Kimi Plan Monitor",
         "width": 260,
         "height": 80,
@@ -21,6 +22,20 @@
         "center": true,
         "skipTaskbar": true,
         "transparent": true
+      },
+      {
+        "label": "settings",
+        "title": "设置",
+        "url": "settings.html",
+        "width": 420,
+        "height": 320,
+        "decorations": true,
+        "alwaysOnTop": true,
+        "resizable": false,
+        "center": true,
+        "skipTaskbar": false,
+        "transparent": false,
+        "visible": false
       }
     ],
     "security": {

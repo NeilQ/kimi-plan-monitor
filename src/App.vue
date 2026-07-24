@@ -3,7 +3,6 @@ import { ref, onMounted, onUnmounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import UsageLine from './components/UsageLine.vue';
-import SettingsDialog from './components/SettingsDialog.vue';
 
 const weeklyUsed = ref('--%');
 const weeklyRemaining = ref('--%');
@@ -13,7 +12,6 @@ const hourlyRemaining = ref('--%');
 const hourlyResetTime = ref('--');
 const lastUpdateTime = ref('--:--:--');
 const isRefreshing = ref(false);
-const settingsDialog = ref<InstanceType<typeof SettingsDialog>>();
 
 // 主题
 const theme = ref<'dark' | 'light'>(
@@ -77,7 +75,6 @@ const formatResetTime = (isoString: string) => {
 };
 
 let unlistenUsage: (() => void) | undefined;
-let unlistenSettings: (() => void) | undefined;
 let unlistenRefresh: (() => void) | undefined;
 
 onMounted(async () => {
@@ -85,10 +82,6 @@ onMounted(async () => {
 
   unlistenUsage = await listen('usage-updated', (event: any) => {
     updateUsage(event.payload);
-  });
-
-  unlistenSettings = await listen('open-settings', () => {
-    settingsDialog.value?.open();
   });
 
   unlistenRefresh = await listen('manual-refresh', () => {
@@ -100,7 +93,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (unlistenUsage) unlistenUsage();
-  if (unlistenSettings) unlistenSettings();
   if (unlistenRefresh) unlistenRefresh();
 });
 </script>
@@ -139,8 +131,6 @@ onUnmounted(() => {
                  :remaining="hourlyRemaining"
                  :reset-time="hourlyResetTime" />
   </div>
-
-  <SettingsDialog ref="settingsDialog" />
   </div>
 </template>
 
@@ -161,10 +151,6 @@ onUnmounted(() => {
 
 .header {
   border-bottom: 1px solid var(--color-border);
-}
-
-.footer {
-  border-top: 1px solid var(--color-border);
 }
 
 .icon-btn:hover {

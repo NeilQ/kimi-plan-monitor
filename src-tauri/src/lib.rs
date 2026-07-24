@@ -9,7 +9,7 @@ use std::time::Duration;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Emitter, Manager, State, WindowEvent,
+    Emitter, Manager, State, WebviewWindowBuilder, WindowEvent,
 };
 use tauri_plugin_store::StoreExt;
 
@@ -90,6 +90,20 @@ fn activate_window(window: &tauri::WebviewWindow) {
     let _ = window.set_focus();
     // alwaysOnTop 已开启，再次显式置顶确保不被其他窗口压住
     let _ = window.set_always_on_top(true);
+}
+
+// 打开或激活设置窗口
+fn open_settings_window(app: &tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("settings") {
+        activate_window(&window);
+        Ok(())
+    } else {
+        let _window = WebviewWindowBuilder::from_config(app, app.config().app.windows.get(1).expect("settings window config missing"))
+            .map_err(|e| format!("failed to build settings window: {}", e))?
+            .build()
+            .map_err(|e| format!("failed to create settings window: {}", e))?;
+        Ok(())
+    }
 }
 
 // 启动定时轮询任务
@@ -199,10 +213,7 @@ pub fn run() {
                         let _ = app.emit("manual-refresh", ());
                     }
                     "settings" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            activate_window(&window);
-                        }
-                        let _ = app.emit("open-settings", ());
+                        let _ = open_settings_window(app);
                     }
                     "quit" => {
                         std::process::exit(0);
@@ -238,20 +249,21 @@ pub fn run() {
                 autohide::start_auto_hide_task(window, auto_hide_state.clone());
             }
 
-            // 首次启动未配置 Token 时，提示前端打开设置
+            // 首次启动未配置 Token 时，打开设置窗口
             if token.lock().unwrap().is_empty() {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.emit("open-settings", ());
-                }
+                let app_handle = app.handle().clone();
+                let _ = open_settings_window(&app_handle);
             }
 
             Ok(())
         })
         .on_window_event(|window, event| {
-            // 阻止窗口关闭，改为隐藏到托盘
+            // 阻止主窗口关闭，改为隐藏到托盘；设置窗口允许正常关闭
             if let WindowEvent::CloseRequested { api, .. } = event {
-                window.hide().unwrap();
-                api.prevent_close();
+                if window.label() == "main" {
+                    window.hide().unwrap();
+                    api.prevent_close();
+                }
             }
         })
         .invoke_handler(tauri::generate_handler![greet, refresh_usage, get_auto_hide_enabled, set_auto_hide_enabled, get_token, set_token])
