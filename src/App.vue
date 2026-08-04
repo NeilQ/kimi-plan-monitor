@@ -70,7 +70,8 @@ const clearUsage = () => {
 
 const updateUsage = (data: any) => {
   const weeklyLimit = parseInt(data.usage.limit);
-  const weeklyUsedCount = parseInt(data.usage.used);
+  const weeklyRemainingCount = parseInt(data.usage.remaining);
+  const weeklyUsedCount = weeklyLimit - weeklyRemainingCount;
   const weeklyUsedPercent = Math.round((weeklyUsedCount / weeklyLimit) * 100);
   const weeklyRemainingPercent = 100 - weeklyUsedPercent;
 

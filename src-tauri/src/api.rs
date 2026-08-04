@@ -9,7 +9,6 @@ pub struct UsageData {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Usage {
     pub limit: String,
-    pub used: String,
     pub remaining: String,
     #[serde(rename = "resetTime")]
     pub reset_time: String,
