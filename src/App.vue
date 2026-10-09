@@ -68,40 +68,45 @@ const clearUsage = () => {
   hourlyResetTime.value = '--';
 };
 
-const updateUsage = (data: any) => {
-  const weeklyLimit = parseInt(data.usage.limit);
-  const weeklyRemainingCount = parseInt(data.usage.remaining);
-  const weeklyUsedCount = weeklyLimit - weeklyRemainingCount;
-  const weeklyUsedPercent = Math.round((weeklyUsedCount / weeklyLimit) * 100);
-  const weeklyRemainingPercent = 100 - weeklyUsedPercent;
-
-  weeklyUsed.value = `${weeklyUsedPercent}%`;
-  weeklyRemaining.value = `${weeklyRemainingPercent}%`;
-  weeklyResetTime.value = formatResetTime(data.usage.resetTime);
-
-  const hourlyLimit = data.limits[0];
-  const hourlyLimitCount = parseInt(hourlyLimit.detail.limit);
-  const hourlyRemainingCount = parseInt(hourlyLimit.detail.remaining);
-  const hourlyUsedCount = hourlyLimitCount - hourlyRemainingCount;
-  const hourlyUsedPercent = Math.round((hourlyUsedCount / hourlyLimitCount) * 100);
-  const hourlyRemainingPercent = 100 - hourlyUsedPercent;
-
-  hourlyUsed.value = `${hourlyUsedPercent}%`;
-  hourlyRemaining.value = `${hourlyRemainingPercent}%`;
-  hourlyResetTime.value = formatResetTime(hourlyLimit.detail.resetTime);
-
-  const now = new Date();
-  lastUpdateTime.value = now.toLocaleTimeString('zh-CN', { hour12: false });
-};
+type WindowUsage = { used_ratio: number; reset_time: string } | null;
 
 const formatResetTime = (isoString: string) => {
   const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return '--';
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   const seconds = String(date.getSeconds()).padStart(2, '0');
   return `${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
+// 后端直接透传接口的 used_ratio（0~1），这里只负责显示
+const formatWindow = (window: WindowUsage) => {
+  if (!window) {
+    return { used: '--%', remaining: '--%', resetTime: '--' };
+  }
+  const used = Math.round(window.used_ratio * 100);
+  return {
+    used: `${used}%`,
+    remaining: `${100 - used}%`,
+    resetTime: formatResetTime(window.reset_time),
+  };
+};
+
+const updateUsage = (data: any) => {
+  const weekly = formatWindow(data.usages.limit_7d);
+  weeklyUsed.value = weekly.used;
+  weeklyRemaining.value = weekly.remaining;
+  weeklyResetTime.value = weekly.resetTime;
+
+  const hourly = formatWindow(data.usages.limit_5h);
+  hourlyUsed.value = hourly.used;
+  hourlyRemaining.value = hourly.remaining;
+  hourlyResetTime.value = hourly.resetTime;
+
+  const now = new Date();
+  lastUpdateTime.value = now.toLocaleTimeString('zh-CN', { hour12: false });
 };
 
 let unlistenUsage: (() => void) | undefined;

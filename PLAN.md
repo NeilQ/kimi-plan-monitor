@@ -13,7 +13,7 @@
 **API 信息：**
 - Endpoint: `GET https://api.kimi.com/coding/v1/usages`
 - Auth: Bearer Token (`***REDACTED-TOKEN***`)
-- 响应包含 `usage`（周用量）和 `limits[0]`（5小时用量）
+- 响应为 protobuf-JSON，用量取自 `usages.limit_7d`（周用量）和 `usages.limit_5h`（5小时用量），字段为 `used_ratio`（已用比例 0~1）和 `reset_time`
 
 ## 技术选型
 
@@ -183,39 +183,24 @@ kimi-plan-monitor/
 ```rust
 use serde::{Deserialize, Serialize};
 
+// 接口返回 protobuf-JSON，proto3 会省略取值等于默认值（0 / "" / false）的标量字段，
+// 因此所有可能为 0 的字段都必须容忍缺失
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UsageData {
-    pub usage: Usage,
-    pub limits: Vec<Limit>,
+    pub usages: Usages,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Usage {
-    pub limit: String,
-    pub used: String,
-    pub remaining: String,
-    #[serde(rename = "resetTime")]
-    pub reset_time: String,
+pub struct Usages {
+    pub limit_5h: Option<WindowUsage>,
+    pub limit_7d: Option<WindowUsage>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Limit {
-    pub window: Window,
-    pub detail: Detail,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Window {
-    pub duration: u32,
-    #[serde(rename = "timeUnit")]
-    pub time_unit: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Detail {
-    pub limit: String,
-    pub remaining: String,
-    #[serde(rename = "resetTime")]
+pub struct WindowUsage {
+    #[serde(default)]
+    pub used_ratio: f64,
+    #[serde(default)]
     pub reset_time: String,
 }
 
@@ -300,42 +285,44 @@ const handleRefresh = async () => {
   }
 };
 
-const updateUsage = (data) => {
-  // 计算周用量百分比
-  const weeklyLimit = parseInt(data.usage.limit);
-  const weeklyUsedCount = parseInt(data.usage.used);
-  const weeklyUsedPercent = Math.round((weeklyUsedCount / weeklyLimit) * 100);
-  const weeklyRemainingPercent = 100 - weeklyUsedPercent;
-  
-  weeklyUsed.value = `${weeklyUsedPercent}%`;
-  weeklyRemaining.value = `${weeklyRemainingPercent}%`;
-  weeklyResetTime.value = formatResetTime(data.usage.resetTime);
-  
-  // 计算5小时用量百分比
-  const hourlyLimit = data.limits[0];
-  const hourlyLimitCount = parseInt(hourlyLimit.detail.limit);
-  const hourlyRemainingCount = parseInt(hourlyLimit.detail.remaining);
-  const hourlyUsedCount = hourlyLimitCount - hourlyRemainingCount;
-  const hourlyUsedPercent = Math.round((hourlyUsedCount / hourlyLimitCount) * 100);
-  const hourlyRemainingPercent = 100 - hourlyUsedPercent;
-  
-  hourlyUsed.value = `${hourlyUsedPercent}%`;
-  hourlyRemaining.value = `${hourlyRemainingPercent}%`;
-  hourlyResetTime.value = formatResetTime(hourlyLimit.detail.resetTime);
-  
-  // 更新最后刷新时间
-  const now = new Date();
-  lastUpdateTime.value = now.toLocaleTimeString('zh-CN', { hour12: false });
-};
-
 const formatResetTime = (isoString) => {
   const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return '--';
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   const seconds = String(date.getSeconds()).padStart(2, '0');
   return `${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
+// 后端透传接口的 used_ratio（0~1），这里只负责显示
+const formatWindow = (window) => {
+  if (!window) {
+    return { used: '--%', remaining: '--%', resetTime: '--' };
+  }
+  const used = Math.round(window.used_ratio * 100);
+  return {
+    used: `${used}%`,
+    remaining: `${100 - used}%`,
+    resetTime: formatResetTime(window.reset_time),
+  };
+};
+
+const updateUsage = (data) => {
+  const weekly = formatWindow(data.usages.limit_7d);
+  weeklyUsed.value = weekly.used;
+  weeklyRemaining.value = weekly.remaining;
+  weeklyResetTime.value = weekly.resetTime;
+
+  const hourly = formatWindow(data.usages.limit_5h);
+  hourlyUsed.value = hourly.used;
+  hourlyRemaining.value = hourly.remaining;
+  hourlyResetTime.value = hourly.resetTime;
+
+  // 更新最后刷新时间
+  const now = new Date();
+  lastUpdateTime.value = now.toLocaleTimeString('zh-CN', { hour12: false });
 };
 
 let unlisten;
